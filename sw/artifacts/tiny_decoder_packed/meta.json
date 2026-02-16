@@ -1,0 +1,6 @@
+{
+  "dim": 16,
+  "seed": 123,
+  "dequant_scale": 0.012196987319806118,
+  "format": "int8_weight_npy"
+}

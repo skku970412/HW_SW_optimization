@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module gemm_core #(
     parameter int M_TILE = 4,
     parameter int N_TILE = 8,
@@ -17,31 +19,68 @@ module gemm_core #(
     input  logic out_ready,
     output logic [ACC_WIDTH-1:0] out_data
 );
-    // MVP skeleton. Replace with tiled MAC datapath in Week B2/B3.
-    logic busy;
-    logic [ACC_WIDTH-1:0] acc;
+    localparam int KCNT_W = (K_TILE <= 1) ? 1 : $clog2(K_TILE);
+    typedef enum logic [1:0] {
+        ST_IDLE = 2'd0,
+        ST_RUN  = 2'd1,
+        ST_OUT  = 2'd2
+    } state_t;
+
+    state_t state;
+    logic signed [ACC_WIDTH-1:0] acc;
+    logic [KCNT_W-1:0] k_count;
+    logic fire_in;
+    logic fire_out;
+    logic signed [ACC_WIDTH-1:0] product;
+
+    assign fire_in = in_valid && in_ready;
+    assign fire_out = out_valid && out_ready;
+    assign product = $signed(a_data) * $signed(b_data);
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            busy      <= 1'b0;
+            state     <= ST_IDLE;
             acc       <= '0;
+            k_count   <= '0;
             out_valid <= 1'b0;
         end else begin
-            if (cfg_start) begin
-                busy      <= 1'b1;
-                acc       <= '0;
-                out_valid <= 1'b0;
-            end
-            if (busy && in_valid && in_ready) begin
-                acc <= acc + $signed(a_data) * $signed(b_data);
-            end
-            if (busy && out_ready) begin
-                out_valid <= 1'b1;
-                busy      <= 1'b0;
-            end
+            case (state)
+                ST_IDLE: begin
+                    out_valid <= 1'b0;
+                    if (cfg_start) begin
+                        acc <= '0;
+                        k_count <= '0;
+                        state <= ST_RUN;
+                    end
+                end
+
+                ST_RUN: begin
+                    if (fire_in) begin
+                        acc <= acc + product;
+                        if (k_count == K_TILE - 1) begin
+                            state <= ST_OUT;
+                            out_valid <= 1'b1;
+                        end else begin
+                            k_count <= k_count + 1'b1;
+                        end
+                    end
+                end
+
+                ST_OUT: begin
+                    if (fire_out) begin
+                        out_valid <= 1'b0;
+                        state <= ST_IDLE;
+                    end
+                end
+
+                default: begin
+                    state <= ST_IDLE;
+                    out_valid <= 1'b0;
+                end
+            endcase
         end
     end
 
-    assign in_ready = busy;
+    assign in_ready = (state == ST_RUN);
     assign out_data = acc;
 endmodule

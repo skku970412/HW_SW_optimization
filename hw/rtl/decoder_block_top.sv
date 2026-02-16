@@ -1,8 +1,11 @@
+`timescale 1ns/1ps
+
 module decoder_block_top #(
     parameter int DATA_WIDTH = 16
 ) (
     input  logic clk,
     input  logic rst_n,
+    input  logic cfg_start,
     input  logic in_valid,
     output logic in_ready,
     input  logic [DATA_WIDTH-1:0] x_t_data,
@@ -18,6 +21,7 @@ module decoder_block_top #(
     ) u_attention (
         .clk(clk),
         .rst_n(rst_n),
+        .cfg_start(cfg_start),
         .in_valid(in_valid),
         .in_ready(in_ready),
         .q_data(x_t_data),
