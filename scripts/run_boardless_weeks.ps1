@@ -173,15 +173,18 @@ if ($vivadoCmd) {
     $vivadoDir = Split-Path -Parent $vivadoCmd
     $env:PATH = "$vivadoDir;$env:PATH"
 
-    $versionText = ""
+    $versionOutput = @()
     if ($vivadoCmd.ToLower().EndsWith(".bat")) {
-        $versionText = cmd /c "`"$vivadoCmd`" -version" 2>&1 | Select-Object -First 1
+        $versionOutput = cmd /c "`"$vivadoCmd`" -version" 2>&1
     } else {
-        $versionText = & $vivadoCmd -version 2>&1 | Select-Object -First 1
+        $versionOutput = & $vivadoCmd -version 2>&1
     }
+    $versionText = (($versionOutput | Out-String).Trim())
+    $firstLine = (($versionText -split "`r?`n")[0]).Trim()
+    $hasVersionBanner = ($versionText -match "vivado v\d{4}\.\d")
 
-    if ($LASTEXITCODE -eq 0) {
-        Write-ProgressLog -Week "B7" -Step "B7_qor_probe" -Status "PASS" -ValidationRuns 1 -Summary ("Vivado detected and version probed: " + $versionText)
+    if ($LASTEXITCODE -eq 0 -or $hasVersionBanner) {
+        Write-ProgressLog -Week "B7" -Step "B7_qor_probe" -Status "PASS" -ValidationRuns 1 -Summary ("Vivado detected and version probed: " + $firstLine)
     } else {
         Write-ProgressLog -Week "B7" -Step "B7_qor_probe" -Status "BLOCKED" -ValidationRuns 1 -Summary "Vivado found but version probe failed." -Blocker ("path=" + $vivadoCmd)
     }
