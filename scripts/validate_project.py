@@ -43,6 +43,10 @@ def main() -> int:
         "scripts/run_benchmark_suite.py",
         "scripts/run_rtl_backend_flow.py",
         "scripts/run_n7_rtl_backend.ps1",
+        "scripts/run_dse_autotune.py",
+        "scripts/run_n8_dse.ps1",
+        "scripts/calibrate_cycle_model.py",
+        "scripts/run_n9_calibration.ps1",
         "scripts/eval_accuracy.py",
         "scripts/run_scaleup_proxy.py",
         "scripts/generate_portfolio_assets.py",
@@ -74,6 +78,8 @@ def main() -> int:
         "tests/unit/test_benchmark_suite.py",
         "tests/unit/test_rtl_backend.py",
         "tests/unit/test_rtl_backend_flow.py",
+        "tests/unit/test_dse_autotune.py",
+        "tests/unit/test_cycle_model_calibration.py",
         "tests/unit/test_portfolio_packaging.py",
         "tests/golden/golden_ops.py",
         "tests/golden/golden_attention.py",
@@ -175,6 +181,10 @@ def main() -> int:
             errors.append("boardless_track missing N6 entry")
         if "N7" not in boardless_track:
             errors.append("boardless_track missing N7 entry")
+        if "N8" not in boardless_track:
+            errors.append("boardless_track missing N8 entry")
+        if "N9" not in boardless_track:
+            errors.append("boardless_track missing N9 entry")
 
     prompt_template_path = ROOT / "docs/spec_prompt_template.md"
     if prompt_template_path.is_file():

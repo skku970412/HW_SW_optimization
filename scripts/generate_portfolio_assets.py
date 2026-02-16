@@ -12,6 +12,7 @@ from statistics import mean
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +45,22 @@ def _read_kv_csv(path: Path) -> dict[str, str]:
 def _read_qor(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         raise FileNotFoundError(f"qor summary csv not found: {path}")
+    with path.open("r", encoding="utf-8", newline="") as fp:
+        return list(csv.DictReader(fp))
+
+
+def _read_optional_json(path: Path) -> dict[str, object]:
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def _read_optional_csv_rows(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
     with path.open("r", encoding="utf-8", newline="") as fp:
         return list(csv.DictReader(fp))
 
@@ -154,7 +171,78 @@ def _make_onnx_mae_plot(suite: dict[str, str], figures_dir: Path) -> Path:
     return out
 
 
-def _derive_metrics(suite: dict[str, str], qor_rows: list[dict[str, str]]) -> dict[str, float]:
+def _make_dse_top5_plot(rows: list[dict[str, str]], figures_dir: Path) -> Path | None:
+    if not rows:
+        return None
+    sorted_rows = sorted(rows, key=lambda r: float(r.get("score_tps_per_area", 0.0)), reverse=True)[:5]
+    labels = [
+        f"k{r.get('cfg_k_tile','?')}/pe{r.get('pe_mac_per_cycle','?')}/o{r.get('token_overhead_cycles','?')}"
+        for r in sorted_rows
+    ]
+    values = [float(r.get("cycles_per_token", 0.0)) for r in sorted_rows]
+    if not values:
+        return None
+
+    plt.figure(figsize=(9.0, 4.6))
+    bars = plt.bar(labels, values)
+    plt.ylabel("Cycles/token")
+    plt.title("DSE Top-5 (by TPS/Area Score)")
+    plt.xticks(rotation=20, ha="right")
+    for bar, value in zip(bars, values):
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            value,
+            f"{value:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
+    out = figures_dir / "dse_top5_cycles.png"
+    plt.tight_layout()
+    plt.savefig(out, dpi=150)
+    plt.close()
+    return out
+
+
+def _make_calibration_plot(rows: list[dict[str, str]], figures_dir: Path) -> Path | None:
+    if not rows:
+        return None
+    k_tiles = [int(float(r.get("cfg_k_tile", 0))) for r in rows]
+    obs = [float(r.get("observed_cycles_per_token", 0.0)) for r in rows]
+    raw = [float(r.get("predicted_cycles_per_token_raw", 0.0)) for r in rows]
+    cal = [float(r.get("predicted_cycles_per_token_calibrated", 0.0)) for r in rows]
+    if not k_tiles:
+        return None
+
+    order = np.argsort(np.array(k_tiles))
+    k_tiles = [k_tiles[i] for i in order]
+    obs = [obs[i] for i in order]
+    raw = [raw[i] for i in order]
+    cal = [cal[i] for i in order]
+
+    plt.figure(figsize=(8.0, 4.6))
+    plt.plot(k_tiles, obs, marker="o", label="Observed RTL")
+    plt.plot(k_tiles, raw, marker="x", label="Model Raw")
+    plt.plot(k_tiles, cal, marker="s", label="Model Calibrated")
+    plt.xlabel("cfg_k_tile")
+    plt.ylabel("Cycles/token")
+    plt.title("Cycle Model Calibration")
+    plt.grid(alpha=0.25)
+    plt.legend()
+    out = figures_dir / "cycle_calibration.png"
+    plt.tight_layout()
+    plt.savefig(out, dpi=150)
+    plt.close()
+    return out
+
+
+def _derive_metrics(
+    suite: dict[str, str],
+    qor_rows: list[dict[str, str]],
+    rtl_flow: dict[str, object],
+    dse_best: dict[str, object],
+    calib: dict[str, object],
+) -> dict[str, float]:
     tiny_cpu_tps = _to_float(suite, "tiny_cpu_tps")
     fpga_est_tps = _to_float(suite, "fpga_est_tps")
     scaleup_proxy_tps = _to_float(suite, "scaleup_proxy_tps")
@@ -177,7 +265,7 @@ def _derive_metrics(suite: dict[str, str], qor_rows: list[dict[str, str]]) -> di
     max_ff = max((float(r["ff"] or 0.0) for r in qor_rows), default=0.0)
     max_dsp = max((float(r["dsp"] or 0.0) for r in qor_rows), default=0.0)
 
-    return {
+    metrics: dict[str, float] = {
         "tiny_cpu_tps": tiny_cpu_tps,
         "fpga_est_tps": fpga_est_tps,
         "scaleup_proxy_tps": scaleup_proxy_tps,
@@ -196,6 +284,31 @@ def _derive_metrics(suite: dict[str, str], qor_rows: list[dict[str, str]]) -> di
         "qor_max_ff": max_ff,
         "qor_max_dsp": max_dsp,
     }
+    if rtl_flow:
+        status = rtl_flow.get("status", {})
+        if isinstance(status, dict):
+            metrics["rtl_backend_perf_cycles"] = float(status.get("perf_cycles", 0.0))
+            metrics["rtl_backend_perf_tokens"] = float(status.get("perf_tokens", 0.0))
+            perf_tokens = float(status.get("perf_tokens", 0.0))
+            perf_cycles = float(status.get("perf_cycles", 0.0))
+            metrics["rtl_backend_cycles_per_token"] = (perf_cycles / perf_tokens) if perf_tokens > 0 else 0.0
+    if dse_best:
+        best = dse_best.get("best", {})
+        if isinstance(best, dict):
+            metrics["dse_best_cfg_k_tile"] = float(best.get("cfg_k_tile", 0.0))
+            metrics["dse_best_pe_mac_per_cycle"] = float(best.get("pe_mac_per_cycle", 0.0))
+            metrics["dse_best_token_overhead_cycles"] = float(best.get("token_overhead_cycles", 0.0))
+            metrics["dse_best_cycles_per_token"] = float(best.get("cycles_per_token", 0.0))
+            metrics["dse_best_score_tps_per_area"] = float(best.get("score_tps_per_area", 0.0))
+        metrics["dse_trials"] = float(dse_best.get("num_trials", 0.0))
+        metrics["dse_pareto_count"] = float(dse_best.get("pareto_count", 0.0))
+    if calib:
+        metrics["calib_scale"] = float(calib.get("scale", 1.0))
+        metrics["calib_bias"] = float(calib.get("bias", 0.0))
+        metrics["calib_mae_raw"] = float(calib.get("mae_raw", 0.0))
+        metrics["calib_mae_calibrated"] = float(calib.get("mae_calibrated", 0.0))
+        metrics["calib_improvement_pct"] = float(calib.get("improvement_pct", 0.0))
+    return metrics
 
 
 def _write_final_report(
@@ -203,6 +316,10 @@ def _write_final_report(
     qor_rows: list[dict[str, str]],
     metrics: dict[str, float],
     out_dir: Path,
+    dse_best: dict[str, object],
+    calib: dict[str, object],
+    dse_fig: Path | None,
+    calib_fig: Path | None,
 ) -> Path:
     generated_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     report = out_dir / "final_report.md"
@@ -217,13 +334,45 @@ def _write_final_report(
         )
 
     suite_timestamp = suite.get("timestamp_utc", "n/a")
+    dse_best_row = dse_best.get("best", {}) if isinstance(dse_best, dict) else {}
+    dse_lines = []
+    if isinstance(dse_best_row, dict) and dse_best_row:
+        dse_lines = [
+            "",
+            "## N8 DSE Summary",
+            "",
+            f"- trials: {int(float(metrics.get('dse_trials', 0.0)))}",
+            f"- pareto_points: {int(float(metrics.get('dse_pareto_count', 0.0)))}",
+            f"- best cfg_k_tile: {int(float(metrics.get('dse_best_cfg_k_tile', 0.0)))}",
+            f"- best pe_mac_per_cycle: {int(float(metrics.get('dse_best_pe_mac_per_cycle', 0.0)))}",
+            f"- best token_overhead_cycles: {int(float(metrics.get('dse_best_token_overhead_cycles', 0.0)))}",
+            f"- best cycles_per_token: {metrics.get('dse_best_cycles_per_token', 0.0):.6f}",
+            f"- best score_tps_per_area: {metrics.get('dse_best_score_tps_per_area', 0.0):.6f}",
+        ]
+        if dse_fig is not None:
+            dse_lines += ["", "![DSE Top5](figures/dse_top5_cycles.png)"]
+
+    calib_lines = []
+    if calib:
+        calib_lines = [
+            "",
+            "## N9 Cycle Model Calibration",
+            "",
+            f"- scale: {metrics.get('calib_scale', 1.0):.6f}",
+            f"- bias: {metrics.get('calib_bias', 0.0):.6f}",
+            f"- mae_raw: {metrics.get('calib_mae_raw', 0.0):.6f}",
+            f"- mae_calibrated: {metrics.get('calib_mae_calibrated', 0.0):.6f}",
+            f"- improvement_pct: {metrics.get('calib_improvement_pct', 0.0):.2f}",
+        ]
+        if calib_fig is not None:
+            calib_lines += ["", "![Calibration](figures/cycle_calibration.png)"]
     content = "\n".join(
         [
             "# Final Portfolio Report",
             "",
             f"- generated_utc: {generated_utc}",
             f"- benchmark_suite_timestamp_utc: {suite_timestamp}",
-            "- scope: Boardless LLM inference accelerator MVP + optimization round (N1~N6)",
+            "- scope: Boardless LLM inference accelerator MVP + optimization round (N1~N10)",
             "",
             "## KPI Summary",
             "",
@@ -238,6 +387,7 @@ def _write_final_report(
             f"| fpga_est_ms_per_token | {metrics['fpga_est_ms_per_token']:.6f} |",
             f"| onnx_mae_avg | {metrics['onnx_mae_avg']:.6f} |",
             f"| qor_best_wns_ns | {metrics['qor_best_wns_ns']:.6f} |",
+            f"| rtl_backend_cycles_per_token | {metrics.get('rtl_backend_cycles_per_token', 0.0):.6f} |",
             "",
             "## Figures",
             "",
@@ -265,6 +415,8 @@ def _write_final_report(
             "- Current RTL is a boardless proxy-kernel implementation for pre-silicon bring-up.",
             "- Core pipeline and verification automation are real; full Transformer operator completeness is a next-phase target.",
             "- Primary speedup KPI uses fpga_est_tps vs scaleup_proxy_tps (same proxy scale).",
+            *dse_lines,
+            *calib_lines,
             "",
             "## Reproduce",
             "",
@@ -315,8 +467,20 @@ def _write_portfolio_runbook(out_dir: Path) -> Path:
 
 
 def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
+    dse_line = ""
+    if metrics.get("dse_trials", 0.0) > 0:
+        dse_line = (
+            f"- dse_best(k_tile/pe/overhead): "
+            f"{int(metrics.get('dse_best_cfg_k_tile', 0.0))}/"
+            f"{int(metrics.get('dse_best_pe_mac_per_cycle', 0.0))}/"
+            f"{int(metrics.get('dse_best_token_overhead_cycles', 0.0))}"
+        )
+    calib_line = ""
+    if "calib_improvement_pct" in metrics:
+        calib_line = f"- cycle_model_calibration_improvement_pct: {metrics.get('calib_improvement_pct', 0.0):.2f}"
+
     content = "\n".join(
-        [
+        [x for x in [
             "# Transformer Acceleration (Boardless LLM Inference)",
             "",
             "Repository for boardless development, validation, and portfolio packaging",
@@ -325,12 +489,14 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "## Current Status",
             "",
             "- Boardless track: B1~B8 PASS",
-            "- Optimization round: N1~N6 PASS",
+            "- Optimization round: N1~N10 PASS",
             f"- tiny_cpu_tps: {metrics['tiny_cpu_tps']:.6f}",
             f"- fpga_est_tps: {metrics['fpga_est_tps']:.6f}",
             f"- scaleup_proxy_tps: {metrics['scaleup_proxy_tps']:.6f}",
             f"- speedup_fpga_est_vs_scaleup_proxy: {metrics['speedup_fpga_est_vs_scaleup_proxy']:.6f} (primary)",
             f"- onnx_mae_avg: {metrics['onnx_mae_avg']:.6f}",
+            dse_line,
+            calib_line,
             "",
             "## Quick Start",
             "",
@@ -351,6 +517,20 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "```powershell",
             "powershell -ExecutionPolicy Bypass -File scripts/run_n7_rtl_backend.ps1 -MaxRuns 10",
             "python scripts/run_rtl_backend_flow.py",
+            "```",
+            "",
+            "## P2 DSE/Autotune",
+            "",
+            "```powershell",
+            "powershell -ExecutionPolicy Bypass -File scripts/run_n8_dse.ps1 -MaxRuns 10",
+            "python scripts/run_dse_autotune.py",
+            "```",
+            "",
+            "## N9 Cycle-model Calibration",
+            "",
+            "```powershell",
+            "powershell -ExecutionPolicy Bypass -File scripts/run_n9_calibration.ps1 -MaxRuns 10",
+            "python scripts/calibrate_cycle_model.py",
             "```",
             "",
             "## Outputs",
@@ -381,7 +561,13 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "",
             "### ONNX MAE",
             "![ONNX MAE](docs/portfolio/figures/onnx_mae.png)",
-        ]
+            "",
+            "### DSE Top-5 (if available)",
+            "![DSE Top5](docs/portfolio/figures/dse_top5_cycles.png)",
+            "",
+            "### Cycle Model Calibration (if available)",
+            "![Calibration](docs/portfolio/figures/cycle_calibration.png)",
+        ] if x != ""]
     )
     readme_path.write_text(content + "\n", encoding="utf-8")
     return readme_path
@@ -459,7 +645,12 @@ def main() -> int:
     suite = _read_kv_csv(suite_csv)
     _validate_suite(suite)
     qor_rows = _read_qor(qor_csv)
-    metrics = _derive_metrics(suite, qor_rows)
+    rtl_flow = _read_optional_json(DEFAULT_RESULTS / "rtl_backend_flow_result.json")
+    dse_best = _read_optional_json(DEFAULT_RESULTS / "dse_autotune_best.json")
+    dse_rows = _read_optional_csv_rows(DEFAULT_RESULTS / "dse_autotune.csv")
+    calib = _read_optional_json(DEFAULT_RESULTS / "model_calibration.json")
+    calib_rows = _read_optional_csv_rows(DEFAULT_RESULTS / "model_calibration.csv")
+    metrics = _derive_metrics(suite, qor_rows, rtl_flow, dse_best, calib)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -467,9 +658,24 @@ def main() -> int:
     perf_fig = _make_perf_plot(suite, figures_dir)
     qor_fig = _make_qor_plot(qor_rows, figures_dir)
     mae_fig = _make_onnx_mae_plot(suite, figures_dir)
+    dse_fig = _make_dse_top5_plot(dse_rows, figures_dir)
+    calib_fig = _make_calibration_plot(calib_rows, figures_dir)
     figures = [perf_fig, qor_fig, mae_fig]
+    if dse_fig is not None:
+        figures.append(dse_fig)
+    if calib_fig is not None:
+        figures.append(calib_fig)
 
-    report = _write_final_report(suite, qor_rows, metrics, out_dir)
+    report = _write_final_report(
+        suite,
+        qor_rows,
+        metrics,
+        out_dir,
+        dse_best=dse_best,
+        calib=calib,
+        dse_fig=dse_fig,
+        calib_fig=calib_fig,
+    )
     runbook = _write_portfolio_runbook(out_dir)
     readme = _write_readme(metrics, readme_path)
 

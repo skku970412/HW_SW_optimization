@@ -28,13 +28,19 @@ class RtlBackend:
         *,
         dim: int,
         max_seq: int,
+        cfg_k_tile: int = 16,
         pe_mac_per_cycle: int = 256,
         token_overhead_cycles: int = 12,
+        cycle_calib_scale: float = 1.0,
+        cycle_calib_bias: float = 0.0,
     ) -> None:
         self.dim = dim
         self.max_seq = max_seq
+        self.cfg_k_tile = max(1, int(cfg_k_tile))
         self.pe_mac_per_cycle = max(1, int(pe_mac_per_cycle))
         self.token_overhead_cycles = max(1, int(token_overhead_cycles))
+        self.cycle_calib_scale = float(cycle_calib_scale)
+        self.cycle_calib_bias = float(cycle_calib_bias)
 
         self.regs: dict[int, int] = {}
         self.weights: dict[str, np.ndarray] = {}
@@ -54,7 +60,7 @@ class RtlBackend:
             rm.REG_PERF_TOKENS: 0,
             rm.REG_PERF_STALL_IN: 0,
             rm.REG_PERF_STALL_OUT: 0,
-            rm.REG_CFG_K_TILE: 16,
+            rm.REG_CFG_K_TILE: self.cfg_k_tile,
         }
         self.cache = KVCache(max_seq=self.max_seq, dim=self.dim)
         self.last_error = ""
@@ -81,13 +87,18 @@ class RtlBackend:
         return int(self.regs.get(addr, 0))
 
     def _estimate_token_cycles(self, seq_len: int) -> tuple[int, int, int]:
-        # GEMM(q,k,v): 3 * D*D, decode attention path: ~2 * T*D
-        gemm_macs = 3 * self.dim * self.dim
+        k_tile = max(1, int(self.regs.get(rm.REG_CFG_K_TILE, self.cfg_k_tile)))
+        k_pass = int(np.ceil(self.dim / float(k_tile)))
+
+        # GEMM(q,k,v): 3 * D*D scaled by K-tiling pass count.
+        gemm_macs = 3 * self.dim * self.dim * k_pass
         attn_macs = 2 * seq_len * self.dim
         mac_cycles = int(np.ceil((gemm_macs + attn_macs) / float(self.pe_mac_per_cycle)))
-        stall_in = max(0, seq_len // 32)
+        stall_in = max(0, seq_len // 32) + max(0, (8 - min(k_tile, 8)))
         stall_out = 1 if (seq_len % 64 == 0 and seq_len > 0) else 0
-        total = self.token_overhead_cycles + mac_cycles + stall_in + stall_out
+        raw_total = self.token_overhead_cycles + mac_cycles + stall_in + stall_out
+        calibrated = int(round(raw_total * self.cycle_calib_scale + self.cycle_calib_bias))
+        total = max(1, calibrated)
         return total, stall_in, stall_out
 
     def run(self, prompt_tokens: np.ndarray, gen_len: int) -> np.ndarray:

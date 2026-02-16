@@ -29,7 +29,10 @@ def test_portfolio_packaging_outputs():
     assert "final_report" in data
     assert "metrics" in data
     assert "artifacts" in data
-    assert len(data["figures"]) == 3
+    assert len(data["figures"]) >= 3
     assert data["final_report"] == "docs/portfolio/final_report.md"
     assert all(not p.startswith("D:\\") and not p.startswith("C:\\") for p in data["figures"])
     assert "speedup_fpga_est_vs_scaleup_proxy" in data["metrics"]
+    assert "docs/portfolio/figures/performance_tps.png" in data["figures"]
+    assert "docs/portfolio/figures/qor_resources.png" in data["figures"]
+    assert "docs/portfolio/figures/onnx_mae.png" in data["figures"]

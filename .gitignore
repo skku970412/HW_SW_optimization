@@ -60,3 +60,7 @@ deliverables/*
 # Generated vectors
 tests/vectors/*
 !tests/vectors/.gitkeep
+
+# DSE temporary assets
+sw/artifacts/tiny_decoder_dse_*/
+sw/artifacts/tiny_decoder_dse_*_packed/

@@ -18,6 +18,7 @@ set srcs [list \
     [file join $rtl_dir attention_core.sv] \
     [file join $rtl_dir kv_cache.sv] \
     [file join $rtl_dir decoder_block_top.sv] \
+    [file join $rtl_dir npu_top.sv] \
 ]
 
 foreach src $srcs {
@@ -27,8 +28,18 @@ foreach src $srcs {
     }
 }
 
-read_verilog $srcs
-synth_design -top $top -part $part
+read_verilog -sv $srcs
+
+# For the KV-cache QoR point, we want deterministic BRAM usage.
+# The portable RTL can still infer LUTRAM for small depths, so we allow
+# forcing an XPM-backed implementation via a preprocessor define.
+#
+# NOTE: In Vivado Non-Project mode, use the synth_design -verilog_define option.
+if { $top == "kv_cache" } {
+    synth_design -top $top -part $part -verilog_define KV_CACHE_USE_XPM=1
+} else {
+    synth_design -top $top -part $part
+}
 
 if {[llength [get_ports clk]] > 0} {
     create_clock -name clk -period $clock_period_ns [get_ports clk]

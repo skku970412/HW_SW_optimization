@@ -16,8 +16,11 @@ class RuntimeConfig:
     dim: int = 16
     max_seq: int = 256
     backend: str = "numpy"
+    cfg_k_tile: int = 16
     pe_mac_per_cycle: int = 256
     token_overhead_cycles: int = 12
+    cycle_calib_scale: float = 1.0
+    cycle_calib_bias: float = 0.0
 
 
 class BoardlessNpuRuntime:
@@ -41,8 +44,11 @@ class BoardlessNpuRuntime:
             self._rtl_backend = RtlBackend(
                 dim=self.config.dim,
                 max_seq=self.config.max_seq,
+                cfg_k_tile=self.config.cfg_k_tile,
                 pe_mac_per_cycle=self.config.pe_mac_per_cycle,
                 token_overhead_cycles=self.config.token_overhead_cycles,
+                cycle_calib_scale=self.config.cycle_calib_scale,
+                cycle_calib_bias=self.config.cycle_calib_bias,
             )
         elif self.config.backend != "numpy":
             raise ValueError(f"unsupported backend: {self.config.backend}")

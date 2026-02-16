@@ -144,8 +144,12 @@
 `powershell -ExecutionPolicy Bypass -File scripts/run_n6_packaging.ps1 -MaxRuns 10`
 6. N7 RTL 백엔드(P1) 단독 실행:
 `powershell -ExecutionPolicy Bypass -File scripts/run_n7_rtl_backend.ps1 -MaxRuns 10`
+7. N8 DSE/오토튜닝(P2) 단독 실행:
+`powershell -ExecutionPolicy Bypass -File scripts/run_n8_dse.ps1 -MaxRuns 10`
+8. N9 Cycle-model 캘리브레이션 단독 실행:
+`powershell -ExecutionPolicy Bypass -File scripts/run_n9_calibration.ps1 -MaxRuns 10`
 
-## 10. 고도화 라운드 (N1~N6)
+## 10. 고도화 라운드 (N1~N13)
 
 1. N1 RTL 최적화:
 - `cfg_k_tile` 동적 길이, 성능 카운터(`perf_cycle_count`, `perf_mac_count`) 추가
@@ -165,3 +169,23 @@
 - `runtime/rtl_backend.py`, `hw/rtl/npu_top.sv` 추가로 MMIO/성능카운터 경로 구성
 - `RuntimeConfig(backend="rtl")`로 런타임에서 RTL 프록시 백엔드 선택 가능
 - 검증: `tests/unit/test_rtl_backend.py`, `tests/unit/test_rtl_backend_flow.py`, `tests/tb/cocotb_npu_top.py`
+8. N8 DSE/오토튜닝(P2):
+- `scripts/run_dse_autotune.py`로 `cfg_k_tile`, `pe_mac_per_cycle`, `token_overhead_cycles` 탐색
+- 산출물: `results/dse_autotune.csv`, `results/dse_autotune_best.json`, `results/dse_autotune.md`, `results/dse_pareto.csv`
+- 검증: `tests/unit/test_dse_autotune.py`
+9. N9 Cycle-model 캘리브레이션:
+- `scripts/calibrate_cycle_model.py`로 `npu_top` 관측 카운터 대비 runtime cycle-model 보정(scale/bias)
+- 산출물: `results/model_calibration.csv`, `results/model_calibration.json`, `results/model_calibration.md`
+- 검증: `tests/unit/test_cycle_model_calibration.py`
+10. N10 제약 기반 DSE 결과 반영:
+- DSE score(`tps/area_proxy`)와 Pareto(`tps` vs `area_proxy`)를 최종 보고서에 자동 반영
+- 산출물: `docs/portfolio/figures/dse_top5_cycles.png`, `docs/portfolio/figures/cycle_calibration.png`(가능 시)
+11. N11 KV-cache BRAM 강제(XPM):
+- `KV_CACHE_USE_XPM` 경로에서 `xpm_memory_sdpram` + `MEMORY_PRIMITIVE="block"` 적용
+- QoR 스크립트에서 `kv_cache` top 합성 시 `-verilog_define KV_CACHE_USE_XPM=1` 적용
+- 결과: `results/qor_summary.csv`에서 `kv_cache bram=0.5` 확인
+12. N12 top-level QoR 포함:
+- `run_vivado_qor.ps1` / `run_qor_single.tcl`에 `npu_top` 포함
+- 결과: `results/qor_summary.csv`에 `npu_top` 행 추가
+13. N13 리포트 자동 반영 강화:
+- N8/N9/N11/N12 결과를 `generate_portfolio_assets.py` 통해 README/final_report/manifest에 자동 반영

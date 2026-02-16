@@ -46,12 +46,17 @@ module npu_top #(
 
     logic run_active;
     logic [31:0] token_cycle;
+    logic [31:0] token_target_cycles;
     logic start_evt;
     logic reset_evt;
 
     assign start_evt = mmio_wr_en && (mmio_addr == ADDR_CONTROL) && mmio_wdata[CTRL_START_BIT];
     assign reset_evt = mmio_wr_en && (mmio_addr == ADDR_CONTROL) && mmio_wdata[CTRL_RESET_BIT];
     assign mmio_ready = mmio_wr_en || mmio_rd_en;
+    assign token_target_cycles = TOKEN_LATENCY
+        + ((reg_cfg_k_tile < 32'd4) ? 32'd10 : 32'd0)
+        + ((reg_cfg_k_tile < 32'd8) ? 32'd6 : 32'd0)
+        + ((reg_done_tokens[7:0]) >> 2);
 
     always_comb begin
         unique case (mmio_addr)
@@ -129,7 +134,7 @@ module npu_top #(
                 if (run_active) begin
                     reg_perf_cycles <= reg_perf_cycles + 1'b1;
 
-                    if ((token_cycle + 1'b1) >= TOKEN_LATENCY) begin
+                    if ((token_cycle + 1'b1) >= token_target_cycles) begin
                         token_cycle <= 32'h0;
                         reg_done_tokens <= reg_done_tokens + 1'b1;
                         reg_perf_tokens <= reg_perf_tokens + 1'b1;

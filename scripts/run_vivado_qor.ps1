@@ -72,7 +72,7 @@ if (-not $vivadoCmd) {
 $vivadoBin = Split-Path -Parent $vivadoCmd
 $env:PATH = "$vivadoBin;$env:PATH"
 
-$tops = @("gemm_core", "attention_core", "kv_cache", "decoder_block_top")
+$tops = @("gemm_core", "attention_core", "kv_cache", "decoder_block_top", "npu_top")
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
 foreach ($top in $tops) {
