@@ -39,6 +39,15 @@ sim_build/
 *.str
 *.log
 
+# Vivado/Xilinx workspace artifacts
+.Xil/
+*.Xil/
+*.cache/
+*.runs/
+*.sim/
+*.gen/
+*.ip_user_files/
+
 # Generated run logs/reports
 logs/*
 results/*

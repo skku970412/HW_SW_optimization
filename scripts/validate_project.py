@@ -43,6 +43,9 @@ def main() -> int:
         "scripts/run_benchmark_suite.py",
         "scripts/eval_accuracy.py",
         "scripts/run_scaleup_proxy.py",
+        "scripts/generate_portfolio_assets.py",
+        "scripts/reproduce_portfolio.ps1",
+        "scripts/run_n6_packaging.ps1",
         "scripts/vivado/run_qor_single.tcl",
         "scripts/validate_project.py",
         "scripts/run_validation_10x.ps1",
@@ -66,6 +69,7 @@ def main() -> int:
         "tests/unit/test_scaleup_proxy.py",
         "tests/unit/test_onnx_integration.py",
         "tests/unit/test_benchmark_suite.py",
+        "tests/unit/test_portfolio_packaging.py",
         "tests/golden/golden_ops.py",
         "tests/golden/golden_attention.py",
         "tests/golden/golden_kvcache.py",
@@ -82,6 +86,12 @@ def main() -> int:
         "runtime/np_kernels.py",
         "runtime/register_map.py",
         "scripts/run_onnx_integration.py",
+        "docs/portfolio/final_report.md",
+        "docs/portfolio/manifest.json",
+        "docs/portfolio/runbook.md",
+        "docs/portfolio/figures/performance_tps.png",
+        "docs/portfolio/figures/qor_resources.png",
+        "docs/portfolio/figures/onnx_mae.png",
     ]
 
     for d in required_dirs:
@@ -154,6 +164,8 @@ def main() -> int:
         for token in ["Verilator", "cocotb", "Week B1", "Week B8"]:
             if token not in boardless_track:
                 errors.append(f"boardless_track missing key token: {token}")
+        if "N6" not in boardless_track:
+            errors.append("boardless_track missing N6 entry")
 
     prompt_template_path = ROOT / "docs/spec_prompt_template.md"
     if prompt_template_path.is_file():

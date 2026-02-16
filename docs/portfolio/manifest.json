@@ -1,0 +1,69 @@
+{
+  "schema_version": 2,
+  "generated_utc": "2026-02-16T10:57:23Z",
+  "inputs": {
+    "benchmark_suite_csv": "results/benchmark_suite.csv",
+    "qor_summary_csv": "results/qor_summary.csv"
+  },
+  "metrics": {
+    "tiny_cpu_tps": 7212.405362,
+    "fpga_est_tps": 171.326754,
+    "scaleup_proxy_tps": 108.536976,
+    "speedup_fpga_est_vs_tiny_cpu": 0.023754,
+    "tiny_cpu_ms_per_token": 0.13864999952286375,
+    "fpga_est_ms_per_token": 5.836800013149143,
+    "scaleup_proxy_ms_per_token": 9.21344998592922,
+    "onnx_mae_q": 0.067302,
+    "onnx_mae_k": 0.032923,
+    "onnx_mae_v": 0.040802,
+    "onnx_mae_avg": 0.047009,
+    "qor_best_wns_ns": 3.682,
+    "qor_worst_wns_ns": 2.94,
+    "qor_max_lut": 2513.0,
+    "qor_max_ff": 8224.0,
+    "qor_max_dsp": 3.0
+  },
+  "artifacts": [
+    {
+      "path": "docs/portfolio/final_report.md",
+      "sha256": "98206ec13360507789d8a9c98ecd3c0bf4dff1651fd175c876790331d9af2fd1",
+      "size_bytes": 1277
+    },
+    {
+      "path": "README.md",
+      "sha256": "4c49cf659fee96d414917d29d877fe426403dfbd605c02f4c73cb7ba480bdaee",
+      "size_bytes": 1049
+    },
+    {
+      "path": "docs/portfolio/runbook.md",
+      "sha256": "5a987b295c96ffc2625b4a1e5ae253e8e6e9db1de6b631e71690840798441e17",
+      "size_bytes": 572
+    },
+    {
+      "path": "docs/portfolio/figures/performance_tps.png",
+      "sha256": "23b7de7258d99ae323e314947519b2f7722e5aafee332ea16aeb606df398c0f4",
+      "size_bytes": 31699
+    },
+    {
+      "path": "docs/portfolio/figures/qor_resources.png",
+      "sha256": "9068b6ea02ed2fa134638e993429e0bed0105abdb98fb3f5b9b8c58cdce9f423",
+      "size_bytes": 41560
+    },
+    {
+      "path": "docs/portfolio/figures/onnx_mae.png",
+      "sha256": "c06db06a01912c652ce60b01fcb00b0f55f5e818c06bf39a026e19c83f79d228",
+      "size_bytes": 26055
+    }
+  ],
+  "commands": {
+    "reproduce_full": "powershell -ExecutionPolicy Bypass -File scripts/reproduce_portfolio.ps1",
+    "reproduce_n6_only": "python scripts/generate_portfolio_assets.py"
+  },
+  "final_report": "docs/portfolio/final_report.md",
+  "readme": "README.md",
+  "figures": [
+    "docs/portfolio/figures/performance_tps.png",
+    "docs/portfolio/figures/qor_resources.png",
+    "docs/portfolio/figures/onnx_mae.png"
+  ]
+}

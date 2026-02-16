@@ -139,8 +139,10 @@
 `powershell -ExecutionPolicy Bypass -File scripts/run_validation_10x.ps1`
 4. 진행 상태 요약 생성:
 `python scripts/summarize_boardless_progress.py`
+5. N6 포트폴리오 패키징 단독 실행:
+`powershell -ExecutionPolicy Bypass -File scripts/run_n6_packaging.ps1 -MaxRuns 10`
 
-## 10. 고도화 라운드 (N1~N5)
+## 10. 고도화 라운드 (N1~N6)
 
 1. N1 RTL 최적화:
 - `cfg_k_tile` 동적 길이, 성능 카운터(`perf_cycle_count`, `perf_mac_count`) 추가
@@ -153,3 +155,6 @@
 - `sw/export_proxy_onnx.py`, `sw/onnx_to_pack.py`, `scripts/run_onnx_integration.py`
 5. N5 벤치마크 스위트:
 - `scripts/run_benchmark_suite.py`로 benchmark/QoR/ONNX 지표 통합 요약
+6. N6 포트폴리오 패키징 자동화:
+- `scripts/generate_portfolio_assets.py`로 README/그래프/최종 리포트/manifest/runbook 자동 생성
+- 검증: `tests/unit/test_portfolio_packaging.py`
