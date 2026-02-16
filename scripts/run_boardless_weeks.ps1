@@ -167,7 +167,7 @@ if (-not (Run-Step -Week "B6" -StepName "B6_perf_model_unit" -Command "python -m
 python (Join-Path $root "scripts/perf_model.py") --layers 6 --hidden 768 --seq 256 --pe-mac-per-cycle 256 --clock-mhz 200 --efficiency 0.15 > (Join-Path $root "results/perf_model_latest.txt")
 Write-ProgressLog -Week "B6" -Step "B6_perf_model_run" -Status "PASS" -ValidationRuns 1 -Summary "Performance model output generated."
 
-# B7: synthesis/QoR pre-check
+# B7: synthesis/QoR execution
 $vivadoCmd = Find-VivadoCommand
 if ($vivadoCmd) {
     $vivadoDir = Split-Path -Parent $vivadoCmd
@@ -185,6 +185,12 @@ if ($vivadoCmd) {
 
     if ($LASTEXITCODE -eq 0 -or $hasVersionBanner) {
         Write-ProgressLog -Week "B7" -Step "B7_qor_probe" -Status "PASS" -ValidationRuns 1 -Summary ("Vivado detected and version probed: " + $firstLine)
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $root "scripts/run_vivado_qor.ps1")
+        if ($LASTEXITCODE -eq 0) {
+            Write-ProgressLog -Week "B7" -Step "B7_qor_synth" -Status "PASS" -ValidationRuns 1 -Summary "Vivado synthesis QoR reports generated."
+        } else {
+            Write-ProgressLog -Week "B7" -Step "B7_qor_synth" -Status "BLOCKED" -ValidationRuns 1 -Summary "Vivado detected, but QoR synthesis run failed." -Blocker "Check results/qor/*/vivado_run.log"
+        }
     } else {
         Write-ProgressLog -Week "B7" -Step "B7_qor_probe" -Status "BLOCKED" -ValidationRuns 1 -Summary "Vivado found but version probe failed." -Blocker ("path=" + $vivadoCmd)
     }

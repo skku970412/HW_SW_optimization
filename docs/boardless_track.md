@@ -133,7 +133,9 @@
 
 1. 보드리스 주차 실행:
 `powershell -ExecutionPolicy Bypass -File scripts/run_boardless_weeks.ps1 -MaxRunsPerStep 10`
-2. 프로젝트 구조/문서 검증:
+2. B7 합성 QoR만 단독 실행:
+`powershell -ExecutionPolicy Bypass -File scripts/run_vivado_qor.ps1 -Part xck26-sfvc784-2LV-c -ClockPeriodNs 5.0`
+3. 프로젝트 구조/문서 검증:
 `powershell -ExecutionPolicy Bypass -File scripts/run_validation_10x.ps1`
-3. 진행 상태 요약 생성:
+4. 진행 상태 요약 생성:
 `python scripts/summarize_boardless_progress.py`
