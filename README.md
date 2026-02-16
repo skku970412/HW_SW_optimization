@@ -37,3 +37,14 @@ powershell -ExecutionPolicy Bypass -File scripts/reproduce_portfolio.ps1
 
 - `results/` and `logs/` are ignored by default and regenerated per run.
 - Commit-facing portfolio artifacts are under `docs/portfolio/`.
+
+## Visualization Results
+
+### Throughput
+![Throughput](docs/portfolio/figures/performance_tps.png)
+
+### QoR Resources
+![QoR](docs/portfolio/figures/qor_resources.png)
+
+### ONNX MAE
+![ONNX MAE](docs/portfolio/figures/onnx_mae.png)
