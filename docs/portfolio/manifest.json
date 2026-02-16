@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_utc": "2026-02-16T17:12:49Z",
+  "generated_utc": "2026-02-16T17:36:07Z",
   "inputs": {
     "benchmark_suite_csv": "results/benchmark_suite.csv",
     "qor_summary_csv": "results/qor_summary.csv"
@@ -42,13 +42,13 @@
   "artifacts": [
     {
       "path": "docs/portfolio/final_report.md",
-      "sha256": "bb8d90b311033a23be8aa4dafaf21c9bb9d726f3a29d3768cf1d493ed728fe0e",
+      "sha256": "f14a9def2c3769bec7c8aba02ce2eb6f5aba6138c051d72ffae535403baef6af",
       "size_bytes": 2349
     },
     {
       "path": "README.md",
-      "sha256": "1b5855c050b075e9b1fb7b40d7fdf80cf8a08699a2d29073eb105fe6b20bd89e",
-      "size_bytes": 2600
+      "sha256": "1fd0b40f523dedd8a3da98051d449c161932938c487c17951ee3e16caec08f77",
+      "size_bytes": 4092
     },
     {
       "path": "docs/portfolio/runbook.md",

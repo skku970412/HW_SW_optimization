@@ -1,6 +1,10 @@
 # Transformer Acceleration (Boardless LLM Inference)
 Repository for boardless development, validation, and portfolio packaging
 of an FPGA/NPU-style LLM inference accelerator.
+## TL;DR
+- Same-scale proxy primary KPI: `fpga_est_tps / scaleup_proxy_tps = 1.804x`
+- Boardless flow includes DSE, QoR, calibration, and one-command reproduction.
+- Current numbers are pre-silicon proxy/estimate values; board measurement is the next step.
 ## Current Status
 - Boardless track: B1~B8 PASS
 - Optimization round: N1~N13 PASS
@@ -11,6 +15,18 @@ of an FPGA/NPU-style LLM inference accelerator.
 - onnx_mae_avg: 0.047009
 - dse_best(k_tile/pe/overhead): 8/128/8
 - cycle_model_calibration_improvement_pct: 92.70
+## Metric Interpretation
+- `tiny_cpu_tps`: throughput of dim=16 tiny regression path (reference-only metric).
+- `fpga_est_tps`: estimated throughput from cycle model + QoR on distilgpt2-proxy scale.
+- `scaleup_proxy_tps`: NumPy runtime throughput on distilgpt2-proxy scale.
+- `fpga_est_tps / scaleup_proxy_tps`: primary KPI for fair same-scale comparison.
+## Claims and Evidence
+| claim | evidence | reproduce |
+|---|---|---|
+| Same-scale primary KPI speedup | `results/benchmark_suite.csv`, `docs/portfolio/final_report.md` | `powershell -ExecutionPolicy Bypass -File scripts/reproduce_portfolio.ps1` |
+| Cycle model calibration applied | `results/model_calibration.csv`, `results/model_calibration.json`, `docs/portfolio/figures/cycle_calibration.png` | `powershell -ExecutionPolicy Bypass -File scripts/run_n9_calibration.ps1 -MaxRuns 10` |
+| DSE + Pareto optimization trace | `results/dse_autotune.csv`, `results/dse_pareto.csv`, `docs/portfolio/figures/dse_pareto.png` | `powershell -ExecutionPolicy Bypass -File scripts/run_n8_dse.ps1 -MaxRuns 10` |
+| kv_cache BRAM mapping enabled | `results/qor_summary.csv` (`kv_cache` row, `bram > 0`) | `powershell -ExecutionPolicy Bypass -File scripts/run_vivado_qor.ps1` |
 ## Quick Start
 ```powershell
 python -m pip install -r requirements-boardless.txt
