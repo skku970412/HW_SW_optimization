@@ -2,6 +2,7 @@
 
 - 작성일: 2026-02-16
 - 적용 범위: FPGA 보드 없이 LLM 가속기 RTL/HLS 개발, 검증, 성능 추정까지 완료
+- 현재 구현 수준(정직한 범위): pre-silicon proxy RTL 커널 중심 bring-up 단계
 
 ## 1. 목표
 
@@ -141,6 +142,8 @@
 `python scripts/summarize_boardless_progress.py`
 5. N6 포트폴리오 패키징 단독 실행:
 `powershell -ExecutionPolicy Bypass -File scripts/run_n6_packaging.ps1 -MaxRuns 10`
+6. N7 RTL 백엔드(P1) 단독 실행:
+`powershell -ExecutionPolicy Bypass -File scripts/run_n7_rtl_backend.ps1 -MaxRuns 10`
 
 ## 10. 고도화 라운드 (N1~N6)
 
@@ -158,3 +161,7 @@
 6. N6 포트폴리오 패키징 자동화:
 - `scripts/generate_portfolio_assets.py`로 README/그래프/최종 리포트/manifest/runbook 자동 생성
 - 검증: `tests/unit/test_portfolio_packaging.py`
+7. N7 RTL 백엔드 연결(P1):
+- `runtime/rtl_backend.py`, `hw/rtl/npu_top.sv` 추가로 MMIO/성능카운터 경로 구성
+- `RuntimeConfig(backend="rtl")`로 런타임에서 RTL 프록시 백엔드 선택 가능
+- 검증: `tests/unit/test_rtl_backend.py`, `tests/unit/test_rtl_backend_flow.py`, `tests/tb/cocotb_npu_top.py`

@@ -21,7 +21,7 @@ def _find_iverilog() -> str | None:
 
 @pytest.mark.parametrize(
     "top",
-    ["gemm_core", "attention_core", "kv_cache", "decoder_block_top"],
+    ["gemm_core", "attention_core", "kv_cache", "decoder_block_top", "npu_top"],
 )
 def test_rtl_compiles_with_iverilog(top: str):
     iverilog = _find_iverilog()
@@ -40,6 +40,7 @@ def test_rtl_compiles_with_iverilog(top: str):
         str(RTL / "attention_core.sv"),
         str(RTL / "kv_cache.sv"),
         str(RTL / "decoder_block_top.sv"),
+        str(RTL / "npu_top.sv"),
     ]
     subprocess.run(cmd, check=True)
     assert out.exists()

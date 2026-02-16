@@ -19,6 +19,7 @@ def test_benchmark_suite_script():
         "tiny_cpu_tps",
         "fpga_est_tps",
         "scaleup_proxy_tps",
+        "speedup_fpga_est_vs_scaleup_proxy",
         "speedup_fpga_est_vs_tiny_cpu",
         "onnx_mae_q",
         "onnx_mae_k",

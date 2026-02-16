@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
@@ -20,7 +22,6 @@ REQUIRED_SUITE_KEYS = [
     "tiny_cpu_tps",
     "fpga_est_tps",
     "scaleup_proxy_tps",
-    "speedup_fpga_est_vs_tiny_cpu",
     "onnx_mae_q",
     "onnx_mae_k",
     "onnx_mae_v",
@@ -160,7 +161,16 @@ def _derive_metrics(suite: dict[str, str], qor_rows: list[dict[str, str]]) -> di
     onnx_mae_q = _to_float(suite, "onnx_mae_q")
     onnx_mae_k = _to_float(suite, "onnx_mae_k")
     onnx_mae_v = _to_float(suite, "onnx_mae_v")
-    speedup_fpga_est_vs_tiny_cpu = _to_float(suite, "speedup_fpga_est_vs_tiny_cpu")
+    speedup_fpga_est_vs_scaleup_proxy = (
+        _to_float(suite, "speedup_fpga_est_vs_scaleup_proxy")
+        if "speedup_fpga_est_vs_scaleup_proxy" in suite
+        else (fpga_est_tps / scaleup_proxy_tps if scaleup_proxy_tps > 0 else 0.0)
+    )
+    speedup_fpga_est_vs_tiny_cpu = (
+        _to_float(suite, "speedup_fpga_est_vs_tiny_cpu")
+        if "speedup_fpga_est_vs_tiny_cpu" in suite
+        else (fpga_est_tps / tiny_cpu_tps if tiny_cpu_tps > 0 else 0.0)
+    )
 
     wns_values = [float(r["wns_ns"]) for r in qor_rows if (r.get("wns_ns") or "").strip()]
     max_lut = max((float(r["lut"] or 0.0) for r in qor_rows), default=0.0)
@@ -171,6 +181,7 @@ def _derive_metrics(suite: dict[str, str], qor_rows: list[dict[str, str]]) -> di
         "tiny_cpu_tps": tiny_cpu_tps,
         "fpga_est_tps": fpga_est_tps,
         "scaleup_proxy_tps": scaleup_proxy_tps,
+        "speedup_fpga_est_vs_scaleup_proxy": speedup_fpga_est_vs_scaleup_proxy,
         "speedup_fpga_est_vs_tiny_cpu": speedup_fpga_est_vs_tiny_cpu,
         "tiny_cpu_ms_per_token": (1000.0 / tiny_cpu_tps) if tiny_cpu_tps > 0 else 0.0,
         "fpga_est_ms_per_token": (1000.0 / fpga_est_tps) if fpga_est_tps > 0 else 0.0,
@@ -221,6 +232,7 @@ def _write_final_report(
             f"| tiny_cpu_tps | {metrics['tiny_cpu_tps']:.6f} |",
             f"| fpga_est_tps | {metrics['fpga_est_tps']:.6f} |",
             f"| scaleup_proxy_tps | {metrics['scaleup_proxy_tps']:.6f} |",
+            f"| speedup_fpga_est_vs_scaleup_proxy (primary) | {metrics['speedup_fpga_est_vs_scaleup_proxy']:.6f} |",
             f"| speedup_fpga_est_vs_tiny_cpu | {metrics['speedup_fpga_est_vs_tiny_cpu']:.6f} |",
             f"| tiny_cpu_ms_per_token | {metrics['tiny_cpu_ms_per_token']:.6f} |",
             f"| fpga_est_ms_per_token | {metrics['fpga_est_ms_per_token']:.6f} |",
@@ -247,6 +259,12 @@ def _write_final_report(
             "1. Run each validation step up to 10 times.",
             "2. Stop early when PASS is reached once.",
             "3. Record PASS/FAIL/BLOCKED in logs.",
+            "",
+            "## Scope Note",
+            "",
+            "- Current RTL is a boardless proxy-kernel implementation for pre-silicon bring-up.",
+            "- Core pipeline and verification automation are real; full Transformer operator completeness is a next-phase target.",
+            "- Primary speedup KPI uses fpga_est_tps vs scaleup_proxy_tps (same proxy scale).",
             "",
             "## Reproduce",
             "",
@@ -311,6 +329,7 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             f"- tiny_cpu_tps: {metrics['tiny_cpu_tps']:.6f}",
             f"- fpga_est_tps: {metrics['fpga_est_tps']:.6f}",
             f"- scaleup_proxy_tps: {metrics['scaleup_proxy_tps']:.6f}",
+            f"- speedup_fpga_est_vs_scaleup_proxy: {metrics['speedup_fpga_est_vs_scaleup_proxy']:.6f} (primary)",
             f"- onnx_mae_avg: {metrics['onnx_mae_avg']:.6f}",
             "",
             "## Quick Start",
@@ -327,6 +346,13 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "powershell -ExecutionPolicy Bypass -File scripts/reproduce_portfolio.ps1",
             "```",
             "",
+            "## P1 RTL Backend Path",
+            "",
+            "```powershell",
+            "powershell -ExecutionPolicy Bypass -File scripts/run_n7_rtl_backend.ps1 -MaxRuns 10",
+            "python scripts/run_rtl_backend_flow.py",
+            "```",
+            "",
             "## Outputs",
             "",
             "- Final report: `docs/portfolio/final_report.md`",
@@ -338,6 +364,12 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "",
             "- `results/` and `logs/` are ignored by default and regenerated per run.",
             "- Commit-facing portfolio artifacts are under `docs/portfolio/`.",
+            "",
+            "## Implementation Scope (Current)",
+            "",
+            "- This repository currently uses proxy RTL kernels for boardless pre-silicon bring-up.",
+            "- Runtime default path is NumPy backend; RTL path is validated via cocotb/unit tests.",
+            "- Main KPI for cross-scale fairness is `fpga_est_tps / scaleup_proxy_tps`.",
             "",
             "## Visualization Results",
             "",

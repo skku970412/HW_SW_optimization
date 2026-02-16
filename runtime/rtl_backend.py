@@ -1,61 +1,48 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 from runtime import register_map as rm
 from runtime.np_kernels import KVCache, attention_decode_step, gemm_int8w_int16a_acc32, requantize_int16
-from runtime.rtl_backend import RtlBackend
 
 
-@dataclass
-class RuntimeConfig:
-    dim: int = 16
-    max_seq: int = 256
-    backend: str = "numpy"
-    pe_mac_per_cycle: int = 256
-    token_overhead_cycles: int = 12
+def _pack_error_code(text: str) -> int:
+    # Stable small error signature for REG_LAST_ERROR.
+    b = text.encode("utf-8", errors="ignore")
+    return int(sum(b) & 0xFFFFFFFF)
 
 
-class BoardlessNpuRuntime:
+class RtlBackend:
     """
-    Runtime API shape:
-    - init()
-    - load(pack_dir)
-    - run(prompt_tokens, gen_len)
-    - poll()
+    Boardless RTL backend proxy.
+    - Exposes MMIO-like register behavior.
+    - Runs functional path with Python golden kernels.
+    - Emits cycle/stall counters using a simple token-level cycle model.
     """
 
-    def __init__(self, config: RuntimeConfig | None = None) -> None:
-        self.config = config or RuntimeConfig()
+    def __init__(
+        self,
+        *,
+        dim: int,
+        max_seq: int,
+        pe_mac_per_cycle: int = 256,
+        token_overhead_cycles: int = 12,
+    ) -> None:
+        self.dim = dim
+        self.max_seq = max_seq
+        self.pe_mac_per_cycle = max(1, int(pe_mac_per_cycle))
+        self.token_overhead_cycles = max(1, int(token_overhead_cycles))
+
         self.regs: dict[int, int] = {}
         self.weights: dict[str, np.ndarray] = {}
-        self.cache = KVCache(max_seq=self.config.max_seq, dim=self.config.dim)
-        self.generated: list[np.ndarray] = []
+        self.cache = KVCache(max_seq=max_seq, dim=dim)
         self.last_error = ""
-        self._rtl_backend: RtlBackend | None = None
-        if self.config.backend == "rtl":
-            self._rtl_backend = RtlBackend(
-                dim=self.config.dim,
-                max_seq=self.config.max_seq,
-                pe_mac_per_cycle=self.config.pe_mac_per_cycle,
-                token_overhead_cycles=self.config.token_overhead_cycles,
-            )
-        elif self.config.backend != "numpy":
-            raise ValueError(f"unsupported backend: {self.config.backend}")
+        self.init()
 
     def init(self) -> None:
-        if self._rtl_backend is not None:
-            self._rtl_backend.init()
-            self.regs = self._rtl_backend.regs
-            self.generated = []
-            self.cache = KVCache(max_seq=self.config.max_seq, dim=self.config.dim)
-            self.last_error = ""
-            return
-
         self.regs = {
             rm.REG_CONTROL: 0,
             rm.REG_STATUS: 0,
@@ -69,33 +56,43 @@ class BoardlessNpuRuntime:
             rm.REG_PERF_STALL_OUT: 0,
             rm.REG_CFG_K_TILE: 16,
         }
-        self.generated = []
-        self.cache = KVCache(max_seq=self.config.max_seq, dim=self.config.dim)
+        self.cache = KVCache(max_seq=self.max_seq, dim=self.dim)
         self.last_error = ""
 
     def load(self, pack_dir: Path | str) -> None:
-        if self._rtl_backend is not None:
-            self._rtl_backend.load(pack_dir)
-            return
-
         p = Path(pack_dir)
         meta = json.loads((p / "meta.json").read_text(encoding="utf-8"))
-        if int(meta["dim"]) != self.config.dim:
+        if int(meta["dim"]) != self.dim:
             raise ValueError("pack dim mismatch")
         self.weights["w_q"] = np.load(p / "w_q_int8.npy")
         self.weights["w_k"] = np.load(p / "w_k_int8.npy")
         self.weights["w_v"] = np.load(p / "w_v_int8.npy")
         self.weights["dequant_scale"] = np.array([meta["dequant_scale"]], dtype=np.float32)
 
-    def run(self, prompt_tokens: np.ndarray, gen_len: int) -> np.ndarray:
-        if self._rtl_backend is not None:
-            out = self._rtl_backend.run(prompt_tokens=prompt_tokens, gen_len=gen_len)
-            self.regs = self._rtl_backend.regs
-            self.generated = [o for o in out]
-            return out
+    def mmio_write(self, addr: int, value: int) -> None:
+        if addr == rm.REG_CONTROL:
+            self.regs[rm.REG_CONTROL] = int(value) & 0xFFFFFFFF
+            if value & rm.CTRL_RESET:
+                self.init()
+        elif addr in self.regs:
+            self.regs[addr] = int(value) & 0xFFFFFFFF
 
+    def mmio_read(self, addr: int) -> int:
+        return int(self.regs.get(addr, 0))
+
+    def _estimate_token_cycles(self, seq_len: int) -> tuple[int, int, int]:
+        # GEMM(q,k,v): 3 * D*D, decode attention path: ~2 * T*D
+        gemm_macs = 3 * self.dim * self.dim
+        attn_macs = 2 * seq_len * self.dim
+        mac_cycles = int(np.ceil((gemm_macs + attn_macs) / float(self.pe_mac_per_cycle)))
+        stall_in = max(0, seq_len // 32)
+        stall_out = 1 if (seq_len % 64 == 0 and seq_len > 0) else 0
+        total = self.token_overhead_cycles + mac_cycles + stall_in + stall_out
+        return total, stall_in, stall_out
+
+    def run(self, prompt_tokens: np.ndarray, gen_len: int) -> np.ndarray:
         try:
-            self.regs[rm.REG_CONTROL] = rm.CTRL_START
+            self.mmio_write(rm.REG_CONTROL, rm.CTRL_START)
             self.regs[rm.REG_STATUS] = rm.STATUS_BUSY
             self.regs[rm.REG_PROMPT_LEN] = int(prompt_tokens.shape[0])
             self.regs[rm.REG_GEN_LEN] = int(gen_len)
@@ -106,13 +103,15 @@ class BoardlessNpuRuntime:
             self.regs[rm.REG_PERF_STALL_OUT] = 0
             self.regs[rm.REG_LAST_ERROR] = 0
 
-            if prompt_tokens.ndim != 2 or prompt_tokens.shape[1] != self.config.dim:
+            if prompt_tokens.ndim != 2 or prompt_tokens.shape[1] != self.dim:
                 raise ValueError("prompt shape must be [T, D]")
+            if gen_len <= 0:
+                raise ValueError("gen_len must be > 0")
 
             x_t = prompt_tokens[-1].astype(np.int16)
             scale = float(self.weights["dequant_scale"][0])
+            outputs: list[np.ndarray] = []
 
-            outputs = []
             for _ in range(gen_len):
                 q = gemm_int8w_int16a_acc32(x_t.reshape(1, -1), self.weights["w_q"]).reshape(-1).astype(np.float32)
                 k = gemm_int8w_int16a_acc32(x_t.reshape(1, -1), self.weights["w_k"]).reshape(-1).astype(np.float32)
@@ -121,29 +120,30 @@ class BoardlessNpuRuntime:
                 self.cache.append(k, v)
                 k_all, v_all = self.cache.get()
                 y = attention_decode_step(q, k_all, v_all)
-
                 y_int16 = requantize_int16(np.round(y).astype(np.int32), scale=scale)
+
+                seq_len = int(self.cache.length)
+                cycles, stall_in, stall_out = self._estimate_token_cycles(seq_len)
+                self.regs[rm.REG_PERF_CYCLES] += cycles
+                self.regs[rm.REG_PERF_TOKENS] += 1
+                self.regs[rm.REG_PERF_STALL_IN] += stall_in
+                self.regs[rm.REG_PERF_STALL_OUT] += stall_out
+                self.regs[rm.REG_DONE_TOKENS] += 1
+
                 outputs.append(y_int16.copy())
                 x_t = y_int16
-                self.regs[rm.REG_DONE_TOKENS] += 1
-                self.regs[rm.REG_PERF_TOKENS] += 1
-                # Numpy backend keeps perf counters minimal and deterministic.
-                self.regs[rm.REG_PERF_CYCLES] += int(max(1, self.config.dim // 2))
 
-            out = np.stack(outputs, axis=0)
-            self.generated = [o for o in outputs]
             self.regs[rm.REG_STATUS] = rm.STATUS_DONE
-            return out
+            return np.stack(outputs, axis=0)
         except Exception as exc:  # noqa: BLE001
             self.last_error = str(exc)
+            self.regs[rm.REG_LAST_ERROR] = _pack_error_code(self.last_error)
             self.regs[rm.REG_STATUS] = rm.STATUS_ERROR
             raise
 
     def poll(self) -> dict[str, int | str]:
-        if self._rtl_backend is not None:
-            return self._rtl_backend.poll()
-
         return {
+            "backend": "rtl_proxy",
             "status": self.regs.get(rm.REG_STATUS, 0),
             "done_tokens": self.regs.get(rm.REG_DONE_TOKENS, 0),
             "prompt_len": self.regs.get(rm.REG_PROMPT_LEN, 0),
@@ -152,5 +152,5 @@ class BoardlessNpuRuntime:
             "perf_tokens": self.regs.get(rm.REG_PERF_TOKENS, 0),
             "perf_stall_in": self.regs.get(rm.REG_PERF_STALL_IN, 0),
             "perf_stall_out": self.regs.get(rm.REG_PERF_STALL_OUT, 0),
-            "backend": "numpy",
+            "last_error_code": self.regs.get(rm.REG_LAST_ERROR, 0),
         }

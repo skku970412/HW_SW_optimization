@@ -30,6 +30,7 @@ def _run_cocotb(top: str, module: str) -> None:
         RTL_DIR / "attention_core.sv",
         RTL_DIR / "kv_cache.sv",
         RTL_DIR / "decoder_block_top.sv",
+        RTL_DIR / "npu_top.sv",
     ]
     runner.build(
         sources=verilog_sources,
@@ -58,3 +59,8 @@ def test_cocotb_attention():
 @pytest.mark.skipif(not _prepare_iverilog_path(), reason="iverilog not found")
 def test_cocotb_kvcache():
     _run_cocotb(top="kv_cache", module="tests.tb.cocotb_kvcache")
+
+
+@pytest.mark.skipif(not _prepare_iverilog_path(), reason="iverilog not found")
+def test_cocotb_npu_top():
+    _run_cocotb(top="npu_top", module="tests.tb.cocotb_npu_top")

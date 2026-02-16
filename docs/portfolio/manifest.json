@@ -1,18 +1,19 @@
 {
   "schema_version": 2,
-  "generated_utc": "2026-02-16T11:08:30Z",
+  "generated_utc": "2026-02-16T12:15:06Z",
   "inputs": {
     "benchmark_suite_csv": "results/benchmark_suite.csv",
     "qor_summary_csv": "results/qor_summary.csv"
   },
   "metrics": {
-    "tiny_cpu_tps": 7212.405362,
+    "tiny_cpu_tps": 4997.085077,
     "fpga_est_tps": 171.326754,
-    "scaleup_proxy_tps": 108.536976,
-    "speedup_fpga_est_vs_tiny_cpu": 0.023754,
-    "tiny_cpu_ms_per_token": 0.13864999952286375,
+    "scaleup_proxy_tps": 99.776003,
+    "speedup_fpga_est_vs_scaleup_proxy": 1.717114,
+    "speedup_fpga_est_vs_tiny_cpu": 0.034285,
+    "tiny_cpu_ms_per_token": 0.20011666493385982,
     "fpga_est_ms_per_token": 5.836800013149143,
-    "scaleup_proxy_ms_per_token": 9.21344998592922,
+    "scaleup_proxy_ms_per_token": 10.022449987298048,
     "onnx_mae_q": 0.067302,
     "onnx_mae_k": 0.032923,
     "onnx_mae_v": 0.040802,
@@ -26,13 +27,13 @@
   "artifacts": [
     {
       "path": "docs/portfolio/final_report.md",
-      "sha256": "e3bdb7667b5fe986d1ab0ffd182ffa8f84e6c279921e7b993af6c518c10b38e5",
-      "size_bytes": 1277
+      "sha256": "5097222949a6fcb509f45c0ebaef61e0aff55d7d5a0d3d0ecb94a8e987228157",
+      "size_bytes": 1639
     },
     {
       "path": "README.md",
-      "sha256": "81e6eda4d56b11991181b4afa8189c018de1f319132e26998a0a5f0f19352858",
-      "size_bytes": 1291
+      "sha256": "109cb60fc4eb1ecdcbe8316771656d99f9bee9437e86d91724f69b5711393393",
+      "size_bytes": 1810
     },
     {
       "path": "docs/portfolio/runbook.md",
@@ -41,8 +42,8 @@
     },
     {
       "path": "docs/portfolio/figures/performance_tps.png",
-      "sha256": "23b7de7258d99ae323e314947519b2f7722e5aafee332ea16aeb606df398c0f4",
-      "size_bytes": 31699
+      "sha256": "d6df66738f075101c5e8c82e0d9773c22a9e5463a608d867adcb18eef8b77332",
+      "size_bytes": 29080
     },
     {
       "path": "docs/portfolio/figures/qor_resources.png",

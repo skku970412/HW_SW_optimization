@@ -41,6 +41,8 @@ def main() -> int:
         "scripts/run_sw_hw_flow.py",
         "scripts/run_boardless_benchmark.py",
         "scripts/run_benchmark_suite.py",
+        "scripts/run_rtl_backend_flow.py",
+        "scripts/run_n7_rtl_backend.ps1",
         "scripts/eval_accuracy.py",
         "scripts/run_scaleup_proxy.py",
         "scripts/generate_portfolio_assets.py",
@@ -56,6 +58,7 @@ def main() -> int:
         "tests/tb/cocotb_gemm.py",
         "tests/tb/cocotb_attention.py",
         "tests/tb/cocotb_kvcache.py",
+        "tests/tb/cocotb_npu_top.py",
         "tests/tb/test_gemm_cocotb.py",
         "tests/tb/README.md",
         "tests/unit/test_golden_gemm.py",
@@ -69,6 +72,8 @@ def main() -> int:
         "tests/unit/test_scaleup_proxy.py",
         "tests/unit/test_onnx_integration.py",
         "tests/unit/test_benchmark_suite.py",
+        "tests/unit/test_rtl_backend.py",
+        "tests/unit/test_rtl_backend_flow.py",
         "tests/unit/test_portfolio_packaging.py",
         "tests/golden/golden_ops.py",
         "tests/golden/golden_attention.py",
@@ -78,6 +83,7 @@ def main() -> int:
         "hw/rtl/attention_core.sv",
         "hw/rtl/kv_cache.sv",
         "hw/rtl/decoder_block_top.sv",
+        "hw/rtl/npu_top.sv",
         "sw/create_tiny_decoder_assets.py",
         "sw/pack_weights.py",
         "sw/export_proxy_onnx.py",
@@ -85,6 +91,7 @@ def main() -> int:
         "runtime/api.py",
         "runtime/np_kernels.py",
         "runtime/register_map.py",
+        "runtime/rtl_backend.py",
         "scripts/run_onnx_integration.py",
         "docs/portfolio/final_report.md",
         "docs/portfolio/manifest.json",
@@ -166,6 +173,8 @@ def main() -> int:
                 errors.append(f"boardless_track missing key token: {token}")
         if "N6" not in boardless_track:
             errors.append("boardless_track missing N6 entry")
+        if "N7" not in boardless_track:
+            errors.append("boardless_track missing N7 entry")
 
     prompt_template_path = ROOT / "docs/spec_prompt_template.md"
     if prompt_template_path.is_file():

@@ -45,6 +45,9 @@ def main() -> int:
     scale_tps = 2.0 / float(scale["elapsed_sec"]) if float(scale["elapsed_sec"]) > 0 else 0.0
     tiny_cpu_tps = float(cpu_row["throughput_tokens_per_sec"])
     fpga_est_tps = float(fpga_row["throughput_tokens_per_sec"])
+    # Primary comparison should be same-scale proxy workload.
+    speedup_fpga_vs_scaleup_proxy = fpga_est_tps / scale_tps if scale_tps > 0 else 0.0
+    # Keep legacy metric for compatibility with older reports.
     speedup_fpga_vs_tiny_cpu = fpga_est_tps / tiny_cpu_tps if tiny_cpu_tps > 0 else 0.0
 
     suite_csv = ROOT / "results/benchmark_suite.csv"
@@ -55,6 +58,7 @@ def main() -> int:
         w.writerow(["tiny_cpu_tps", f"{tiny_cpu_tps:.6f}"])
         w.writerow(["fpga_est_tps", f"{fpga_est_tps:.6f}"])
         w.writerow(["scaleup_proxy_tps", f"{scale_tps:.6f}"])
+        w.writerow(["speedup_fpga_est_vs_scaleup_proxy", f"{speedup_fpga_vs_scaleup_proxy:.6f}"])
         w.writerow(["speedup_fpga_est_vs_tiny_cpu", f"{speedup_fpga_vs_tiny_cpu:.6f}"])
         w.writerow(["onnx_mae_q", f"{onnx['mae_q']:.6f}"])
         w.writerow(["onnx_mae_k", f"{onnx['mae_k']:.6f}"])
@@ -69,8 +73,12 @@ def main() -> int:
                 f"- tiny_cpu_tps: {tiny_cpu_tps:.6f}",
                 f"- fpga_est_tps: {fpga_est_tps:.6f}",
                 f"- scaleup_proxy_tps: {scale_tps:.6f}",
+                f"- speedup_fpga_est_vs_scaleup_proxy: {speedup_fpga_vs_scaleup_proxy:.6f}",
                 f"- speedup_fpga_est_vs_tiny_cpu: {speedup_fpga_vs_tiny_cpu:.6f}",
                 f"- onnx_mae_q/k/v: {onnx['mae_q']:.6f} / {onnx['mae_k']:.6f} / {onnx['mae_v']:.6f}",
+                "",
+                "Note: tiny_cpu_tps is measured on a tiny(dim16) path for fast regression,",
+                "while fpga_est_tps and scaleup_proxy_tps represent DistilGPT2-proxy scale.",
             ]
         )
         + "\n",

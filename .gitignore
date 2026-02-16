@@ -54,6 +54,9 @@ results/*
 !results/benchmark_template.csv
 !results/benchmark_template.md
 
+# Review/package artifacts
+deliverables/*
+
 # Generated vectors
 tests/vectors/*
 !tests/vectors/.gitkeep
