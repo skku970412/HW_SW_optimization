@@ -22,6 +22,8 @@ module decoder_block_top #(
         .clk(clk),
         .rst_n(rst_n),
         .cfg_start(cfg_start),
+        .cfg_clear_perf(1'b0),
+        .cfg_k_tile(16'd0),
         .in_valid(in_valid),
         .in_ready(in_ready),
         .q_data(x_t_data),
@@ -29,7 +31,9 @@ module decoder_block_top #(
         .v_data(x_t_data),
         .out_valid(attn_valid),
         .out_ready(out_ready),
-        .out_data(attn_data)
+        .out_data(attn_data),
+        .perf_cycle_count(),
+        .perf_mac_count()
     );
 
     assign out_valid = attn_valid;

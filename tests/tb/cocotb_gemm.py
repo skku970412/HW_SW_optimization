@@ -11,6 +11,8 @@ async def gemm_core_dot_product(dut):
 
     dut.rst_n.value = 0
     dut.cfg_start.value = 0
+    dut.cfg_clear_perf.value = 0
+    dut.cfg_k_tile.value = 0
     dut.in_valid.value = 0
     dut.out_ready.value = 1
     dut.a_data.value = 0

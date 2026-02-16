@@ -1,0 +1,5 @@
+{
+  "dim": 16,
+  "dequant_scale": 0.00463591895391309,
+  "source": "D:\\transformer_acc_1\\sw\\artifacts\\onnx_proxy\\tiny_decoder.onnx"
+}

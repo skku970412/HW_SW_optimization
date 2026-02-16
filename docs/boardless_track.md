@@ -139,3 +139,17 @@
 `powershell -ExecutionPolicy Bypass -File scripts/run_validation_10x.ps1`
 4. 진행 상태 요약 생성:
 `python scripts/summarize_boardless_progress.py`
+
+## 10. 고도화 라운드 (N1~N5)
+
+1. N1 RTL 최적화:
+- `cfg_k_tile` 동적 길이, 성능 카운터(`perf_cycle_count`, `perf_mac_count`) 추가
+- 검증: `tests/tb/test_rtl_compile.py`, `tests/tb/test_cocotb_runner.py`
+2. N2 정확도 자동평가:
+- `scripts/eval_accuracy.py`로 softmax/attention/quant GEMM 오차 리포트 생성
+3. N3 모델 스케일업:
+- `scripts/run_scaleup_proxy.py`로 dim=768 proxy 경로 검증
+4. N4 ONNX 연동:
+- `sw/export_proxy_onnx.py`, `sw/onnx_to_pack.py`, `scripts/run_onnx_integration.py`
+5. N5 벤치마크 스위트:
+- `scripts/run_benchmark_suite.py`로 benchmark/QoR/ONNX 지표 통합 요약

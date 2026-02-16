@@ -40,6 +40,9 @@ def main() -> int:
         "scripts/parse_vivado_qor.py",
         "scripts/run_sw_hw_flow.py",
         "scripts/run_boardless_benchmark.py",
+        "scripts/run_benchmark_suite.py",
+        "scripts/eval_accuracy.py",
+        "scripts/run_scaleup_proxy.py",
         "scripts/vivado/run_qor_single.tcl",
         "scripts/validate_project.py",
         "scripts/run_validation_10x.ps1",
@@ -59,6 +62,10 @@ def main() -> int:
         "tests/unit/test_perf_model.py",
         "tests/unit/test_runtime_flow.py",
         "tests/unit/test_benchmark_flow.py",
+        "tests/unit/test_accuracy_eval.py",
+        "tests/unit/test_scaleup_proxy.py",
+        "tests/unit/test_onnx_integration.py",
+        "tests/unit/test_benchmark_suite.py",
         "tests/golden/golden_ops.py",
         "tests/golden/golden_attention.py",
         "tests/golden/golden_kvcache.py",
@@ -69,9 +76,12 @@ def main() -> int:
         "hw/rtl/decoder_block_top.sv",
         "sw/create_tiny_decoder_assets.py",
         "sw/pack_weights.py",
+        "sw/export_proxy_onnx.py",
+        "sw/onnx_to_pack.py",
         "runtime/api.py",
         "runtime/np_kernels.py",
         "runtime/register_map.py",
+        "scripts/run_onnx_integration.py",
     ]
 
     for d in required_dirs:
