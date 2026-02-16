@@ -1,19 +1,19 @@
 # Final Portfolio Report
 
-- generated_utc: 2026-02-16T16:04:39Z
-- benchmark_suite_timestamp_utc: 2026-02-16T16:04:32Z
-- scope: Boardless LLM inference accelerator MVP + optimization round (N1~N10)
+- generated_utc: 2026-02-16T17:12:48Z
+- benchmark_suite_timestamp_utc: 2026-02-16T17:12:38Z
+- scope: Boardless LLM inference accelerator MVP + optimization round (N1~N13)
 
 ## KPI Summary
 
 | KPI | Value |
 |---|---:|
-| tiny_cpu_tps | 9294.760020 |
+| tiny_cpu_tps | 6383.488061 |
 | fpga_est_tps | 171.326754 |
-| scaleup_proxy_tps | 99.066791 |
-| speedup_fpga_est_vs_scaleup_proxy (primary) | 1.729407 |
-| speedup_fpga_est_vs_tiny_cpu | 0.018433 |
-| tiny_cpu_ms_per_token | 0.107588 |
+| scaleup_proxy_tps | 94.960900 |
+| speedup_fpga_est_vs_scaleup_proxy (primary) | 1.804182 |
+| speedup_fpga_est_vs_tiny_cpu | 0.026839 |
+| tiny_cpu_ms_per_token | 0.156654 |
 | fpga_est_ms_per_token | 5.836800 |
 | onnx_mae_avg | 0.047009 |
 | qor_best_wns_ns | 2.868000 |
@@ -21,8 +21,11 @@
 
 ## Figures
 
-### Throughput
+### Throughput (Primary KPI)
 ![Throughput](figures/performance_tps.png)
+
+### Throughput (Reference, includes Tiny CPU)
+![Throughput All](figures/performance_all_tps.png)
 
 ### QoR Resources
 ![QoR](figures/qor_resources.png)
@@ -63,6 +66,8 @@
 - best score_tps_per_area: 45072.115385
 
 ![DSE Top5](figures/dse_top5_cycles.png)
+
+![DSE Pareto](figures/dse_pareto.png)
 
 ## N9 Cycle Model Calibration
 

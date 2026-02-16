@@ -5,6 +5,7 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
@@ -65,6 +66,25 @@ def _read_optional_csv_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(fp))
 
 
+def _detect_optimization_round(progress_csv: Path) -> str:
+    rows = _read_optional_csv_rows(progress_csv)
+    max_n = 0
+    for row in rows:
+        week = (row.get("week") or "").strip().upper()
+        status = (row.get("status") or "").strip().upper()
+        if status != "PASS":
+            continue
+        m = re.fullmatch(r"N(\d+)", week)
+        if not m:
+            continue
+        n = int(m.group(1))
+        if n > max_n:
+            max_n = n
+    if max_n <= 0:
+        return "N-round unknown"
+    return f"N1~N{max_n}"
+
+
 def _to_float(suite: dict[str, str], key: str) -> float:
     try:
         return float(suite[key])
@@ -93,17 +113,19 @@ def _as_rel(path: Path) -> str:
 
 
 def _make_perf_plot(suite: dict[str, str], figures_dir: Path) -> Path:
-    labels = ["Tiny CPU", "FPGA Est", "Scale-up Proxy"]
+    labels = ["Scale-up Proxy", "FPGA Est"]
     values = [
-        _to_float(suite, "tiny_cpu_tps"),
-        _to_float(suite, "fpga_est_tps"),
         _to_float(suite, "scaleup_proxy_tps"),
+        _to_float(suite, "fpga_est_tps"),
     ]
+    tiny_cpu_tps = _to_float(suite, "tiny_cpu_tps")
+    speedup = (values[1] / values[0]) if values[0] > 0 else 0.0
+    ymax = max(values) * 1.25 if values else 1.0
 
     plt.figure(figsize=(8, 4.5))
     bars = plt.bar(labels, values)
     plt.ylabel("Tokens/sec")
-    plt.title("Throughput Comparison")
+    plt.title("Primary Throughput KPI (Same-scale Proxy)")
     for bar, value in zip(bars, values):
         plt.text(
             bar.get_x() + bar.get_width() / 2,
@@ -113,7 +135,54 @@ def _make_perf_plot(suite: dict[str, str], figures_dir: Path) -> Path:
             va="bottom",
             fontsize=9,
         )
+    plt.ylim(0, ymax)
+    plt.text(
+        0.5,
+        ymax * 0.96,
+        f"speedup_fpga_est_vs_scaleup_proxy = {speedup:.3f}x",
+        ha="center",
+        va="top",
+        fontsize=9,
+    )
+    plt.text(
+        0.98,
+        0.02,
+        f"Tiny CPU reference (different scale): {tiny_cpu_tps:.1f} tps",
+        ha="right",
+        va="bottom",
+        fontsize=8,
+        transform=plt.gca().transAxes,
+    )
     out = figures_dir / "performance_tps.png"
+    plt.tight_layout()
+    plt.savefig(out, dpi=150)
+    plt.close()
+    return out
+
+
+def _make_perf_all_plot(suite: dict[str, str], figures_dir: Path) -> Path:
+    labels = ["Tiny CPU", "Scale-up Proxy", "FPGA Est"]
+    values = [
+        _to_float(suite, "tiny_cpu_tps"),
+        _to_float(suite, "scaleup_proxy_tps"),
+        _to_float(suite, "fpga_est_tps"),
+    ]
+
+    plt.figure(figsize=(8, 4.5))
+    bars = plt.bar(labels, values)
+    plt.ylabel("Tokens/sec")
+    plt.title("Throughput Reference (includes Tiny CPU)")
+    plt.yscale("log")
+    for bar, value in zip(bars, values):
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            value,
+            f"{value:.1f}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
+    out = figures_dir / "performance_all_tps.png"
     plt.tight_layout()
     plt.savefig(out, dpi=150)
     plt.close()
@@ -125,22 +194,35 @@ def _make_qor_plot(qor_rows: list[dict[str, str]], figures_dir: Path) -> Path:
     lut = [float(row["lut"] or 0.0) for row in qor_rows]
     ff = [float(row["ff"] or 0.0) for row in qor_rows]
     dsp = [float(row["dsp"] or 0.0) for row in qor_rows]
+    bram = [float(row["bram"] or 0.0) for row in qor_rows]
 
-    plt.figure(figsize=(9, 4.8))
+    fig, (ax_main, ax_bram) = plt.subplots(
+        2,
+        1,
+        figsize=(9, 6.5),
+        sharex=True,
+        gridspec_kw={"height_ratios": [3, 1]},
+    )
     x = range(len(tops))
     width = 0.25
-    plt.bar([i - width for i in x], lut, width=width, label="LUT")
-    plt.bar(list(x), ff, width=width, label="FF")
-    plt.bar([i + width for i in x], dsp, width=width, label="DSP")
-    plt.yscale("log")
-    plt.xticks(list(x), tops, rotation=15)
-    plt.ylabel("Count (log scale)")
-    plt.title("QoR Resource Summary")
-    plt.legend()
+    ax_main.bar([i - width for i in x], lut, width=width, label="LUT")
+    ax_main.bar(list(x), ff, width=width, label="FF")
+    ax_main.bar([i + width for i in x], dsp, width=width, label="DSP")
+    ax_main.set_yscale("log")
+    ax_main.set_ylabel("Count (log scale)")
+    ax_main.set_title("QoR Resource Summary (LUT/FF/DSP + BRAM)")
+    ax_main.legend()
+
+    ax_bram.bar(list(x), bram, width=0.55, color="tab:green", label="BRAM")
+    ax_bram.set_ylabel("BRAM")
+    ax_bram.set_xlabel("Top Module")
+    ax_bram.set_xticks(list(x))
+    ax_bram.set_xticklabels(tops, rotation=15)
+    ax_bram.grid(axis="y", alpha=0.25)
     out = figures_dir / "qor_resources.png"
-    plt.tight_layout()
-    plt.savefig(out, dpi=150)
-    plt.close()
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
     return out
 
 
@@ -198,6 +280,50 @@ def _make_dse_top5_plot(rows: list[dict[str, str]], figures_dir: Path) -> Path |
             fontsize=8,
         )
     out = figures_dir / "dse_top5_cycles.png"
+    plt.tight_layout()
+    plt.savefig(out, dpi=150)
+    plt.close()
+    return out
+
+
+def _make_dse_pareto_plot(rows: list[dict[str, str]], figures_dir: Path) -> Path | None:
+    out = figures_dir / "dse_pareto.png"
+    if not rows:
+        plt.figure(figsize=(7.2, 4.8))
+        plt.title("DSE Pareto Frontier")
+        plt.text(0.5, 0.5, "No DSE data available", ha="center", va="center")
+        plt.axis("off")
+        plt.tight_layout()
+        plt.savefig(out, dpi=150)
+        plt.close()
+        return out
+    pareto_rows = [
+        r for r in rows
+        if str(r.get("pareto", "")).strip().lower() in {"1", "true", "yes"}
+    ]
+    if not pareto_rows:
+        pareto_rows = rows
+    try:
+        area = [float(r.get("area_proxy", 0.0)) for r in pareto_rows]
+        tps = [float(r.get("tps_estimate", 0.0)) for r in pareto_rows]
+    except ValueError:
+        return None
+    if not area or not tps:
+        return None
+
+    order = np.argsort(np.array(area))
+    area = [area[i] for i in order]
+    tps = [tps[i] for i in order]
+
+    plt.figure(figsize=(7.2, 4.8))
+    plt.scatter(area, tps, s=45, alpha=0.9, label="Pareto candidates")
+    if len(area) >= 2:
+        plt.plot(area, tps, linewidth=1.2, alpha=0.8)
+    plt.xlabel("Area proxy")
+    plt.ylabel("TPS estimate")
+    plt.title("DSE Pareto Frontier")
+    plt.grid(alpha=0.25)
+    plt.legend()
     plt.tight_layout()
     plt.savefig(out, dpi=150)
     plt.close()
@@ -316,9 +442,11 @@ def _write_final_report(
     qor_rows: list[dict[str, str]],
     metrics: dict[str, float],
     out_dir: Path,
+    opt_round_label: str,
     dse_best: dict[str, object],
     calib: dict[str, object],
     dse_fig: Path | None,
+    dse_pareto_fig: Path | None,
     calib_fig: Path | None,
 ) -> Path:
     generated_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -351,6 +479,8 @@ def _write_final_report(
         ]
         if dse_fig is not None:
             dse_lines += ["", "![DSE Top5](figures/dse_top5_cycles.png)"]
+        if dse_pareto_fig is not None:
+            dse_lines += ["", "![DSE Pareto](figures/dse_pareto.png)"]
 
     calib_lines = []
     if calib:
@@ -372,7 +502,7 @@ def _write_final_report(
             "",
             f"- generated_utc: {generated_utc}",
             f"- benchmark_suite_timestamp_utc: {suite_timestamp}",
-            "- scope: Boardless LLM inference accelerator MVP + optimization round (N1~N10)",
+            f"- scope: Boardless LLM inference accelerator MVP + optimization round ({opt_round_label})",
             "",
             "## KPI Summary",
             "",
@@ -391,8 +521,11 @@ def _write_final_report(
             "",
             "## Figures",
             "",
-            "### Throughput",
+            "### Throughput (Primary KPI)",
             "![Throughput](figures/performance_tps.png)",
+            "",
+            "### Throughput (Reference, includes Tiny CPU)",
+            "![Throughput All](figures/performance_all_tps.png)",
             "",
             "### QoR Resources",
             "![QoR](figures/qor_resources.png)",
@@ -466,7 +599,7 @@ def _write_portfolio_runbook(out_dir: Path) -> Path:
     return runbook
 
 
-def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
+def _write_readme(metrics: dict[str, float], readme_path: Path, opt_round_label: str) -> Path:
     dse_line = ""
     if metrics.get("dse_trials", 0.0) > 0:
         dse_line = (
@@ -489,7 +622,7 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "## Current Status",
             "",
             "- Boardless track: B1~B8 PASS",
-            "- Optimization round: N1~N10 PASS",
+            f"- Optimization round: {opt_round_label} PASS",
             f"- tiny_cpu_tps: {metrics['tiny_cpu_tps']:.6f}",
             f"- fpga_est_tps: {metrics['fpga_est_tps']:.6f}",
             f"- scaleup_proxy_tps: {metrics['scaleup_proxy_tps']:.6f}",
@@ -553,8 +686,11 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "",
             "## Visualization Results",
             "",
-            "### Throughput",
+            "### Throughput (Primary KPI)",
             "![Throughput](docs/portfolio/figures/performance_tps.png)",
+            "",
+            "### Throughput (Reference, includes Tiny CPU)",
+            "![Throughput All](docs/portfolio/figures/performance_all_tps.png)",
             "",
             "### QoR Resources",
             "![QoR](docs/portfolio/figures/qor_resources.png)",
@@ -564,6 +700,9 @@ def _write_readme(metrics: dict[str, float], readme_path: Path) -> Path:
             "",
             "### DSE Top-5 (if available)",
             "![DSE Top5](docs/portfolio/figures/dse_top5_cycles.png)",
+            "",
+            "### DSE Pareto (if available)",
+            "![DSE Pareto](docs/portfolio/figures/dse_pareto.png)",
             "",
             "### Cycle Model Calibration (if available)",
             "![Calibration](docs/portfolio/figures/cycle_calibration.png)",
@@ -648,21 +787,27 @@ def main() -> int:
     rtl_flow = _read_optional_json(DEFAULT_RESULTS / "rtl_backend_flow_result.json")
     dse_best = _read_optional_json(DEFAULT_RESULTS / "dse_autotune_best.json")
     dse_rows = _read_optional_csv_rows(DEFAULT_RESULTS / "dse_autotune.csv")
+    dse_pareto_rows = _read_optional_csv_rows(DEFAULT_RESULTS / "dse_pareto.csv")
     calib = _read_optional_json(DEFAULT_RESULTS / "model_calibration.json")
     calib_rows = _read_optional_csv_rows(DEFAULT_RESULTS / "model_calibration.csv")
+    opt_round_label = _detect_optimization_round(DEFAULT_RESULTS / "boardless_progress_log.csv")
     metrics = _derive_metrics(suite, qor_rows, rtl_flow, dse_best, calib)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     perf_fig = _make_perf_plot(suite, figures_dir)
+    perf_all_fig = _make_perf_all_plot(suite, figures_dir)
     qor_fig = _make_qor_plot(qor_rows, figures_dir)
     mae_fig = _make_onnx_mae_plot(suite, figures_dir)
     dse_fig = _make_dse_top5_plot(dse_rows, figures_dir)
+    dse_pareto_fig = _make_dse_pareto_plot(dse_pareto_rows, figures_dir)
     calib_fig = _make_calibration_plot(calib_rows, figures_dir)
-    figures = [perf_fig, qor_fig, mae_fig]
+    figures = [perf_fig, perf_all_fig, qor_fig, mae_fig]
     if dse_fig is not None:
         figures.append(dse_fig)
+    if dse_pareto_fig is not None:
+        figures.append(dse_pareto_fig)
     if calib_fig is not None:
         figures.append(calib_fig)
 
@@ -671,13 +816,15 @@ def main() -> int:
         qor_rows,
         metrics,
         out_dir,
+        opt_round_label=opt_round_label,
         dse_best=dse_best,
         calib=calib,
         dse_fig=dse_fig,
+        dse_pareto_fig=dse_pareto_fig,
         calib_fig=calib_fig,
     )
     runbook = _write_portfolio_runbook(out_dir)
-    readme = _write_readme(metrics, readme_path)
+    readme = _write_readme(metrics, readme_path, opt_round_label=opt_round_label)
 
     manifest = _build_manifest(
         report=report,

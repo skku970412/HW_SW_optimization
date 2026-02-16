@@ -103,8 +103,10 @@ def main() -> int:
         "docs/portfolio/manifest.json",
         "docs/portfolio/runbook.md",
         "docs/portfolio/figures/performance_tps.png",
+        "docs/portfolio/figures/performance_all_tps.png",
         "docs/portfolio/figures/qor_resources.png",
         "docs/portfolio/figures/onnx_mae.png",
+        "docs/portfolio/figures/dse_pareto.png",
     ]
 
     for d in required_dirs:

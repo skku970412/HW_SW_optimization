@@ -15,6 +15,9 @@ if (Test-Path $pkgRoot) {
 }
 New-Item -ItemType Directory -Force $pkgRoot | Out-Null
 
+# Keep status snapshot synchronized with latest boardless progress log.
+python (Join-Path $root "scripts/summarize_boardless_progress.py") | Out-Null
+
 $files = @(
     "README.md",
     ".gitignore",
@@ -28,8 +31,12 @@ $files = @(
     "docs/portfolio/manifest.json",
     "docs/portfolio/runbook.md",
     "docs/portfolio/figures/performance_tps.png",
+    "docs/portfolio/figures/performance_all_tps.png",
     "docs/portfolio/figures/qor_resources.png",
     "docs/portfolio/figures/onnx_mae.png",
+    "docs/portfolio/figures/dse_pareto.png",
+    "docs/portfolio/figures/dse_top5_cycles.png",
+    "docs/portfolio/figures/cycle_calibration.png",
     "scripts/reproduce_portfolio.ps1",
     "scripts/run_n6_packaging.ps1",
     "scripts/run_n7_rtl_backend.ps1",
@@ -152,7 +159,22 @@ Set-Content -Path (Join-Path $pkgRoot "REVIEW_GUIDE.md") -Value $guide -Encoding
 if (Test-Path $zipPath) {
     Remove-Item $zipPath -Force
 }
-Compress-Archive -Path (Join-Path $pkgRoot "*") -DestinationPath $zipPath -Force
+$zipWriterPath = Join-Path $env:TEMP ("zip_writer_" + [guid]::NewGuid().ToString("N") + ".py")
+$zipWriter = @'
+import pathlib
+import sys
+import zipfile
+
+root = pathlib.Path(sys.argv[1]).resolve()
+zip_path = pathlib.Path(sys.argv[2]).resolve()
+with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            zf.write(path, path.relative_to(root).as_posix())
+'@
+Set-Content -Path $zipWriterPath -Value $zipWriter -Encoding utf8
+python $zipWriterPath $pkgRoot $zipPath
+Remove-Item $zipWriterPath -Force
 
 $zipItem = Get-Item $zipPath
 Write-Host ("ZIP_PATH=" + $zipItem.FullName)

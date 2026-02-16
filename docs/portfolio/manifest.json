@@ -1,19 +1,19 @@
 {
   "schema_version": 2,
-  "generated_utc": "2026-02-16T16:04:39Z",
+  "generated_utc": "2026-02-16T17:12:49Z",
   "inputs": {
     "benchmark_suite_csv": "results/benchmark_suite.csv",
     "qor_summary_csv": "results/qor_summary.csv"
   },
   "metrics": {
-    "tiny_cpu_tps": 9294.76002,
+    "tiny_cpu_tps": 6383.488061,
     "fpga_est_tps": 171.326754,
-    "scaleup_proxy_tps": 99.066791,
-    "speedup_fpga_est_vs_scaleup_proxy": 1.729407,
-    "speedup_fpga_est_vs_tiny_cpu": 0.018433,
-    "tiny_cpu_ms_per_token": 0.10758750068299236,
+    "scaleup_proxy_tps": 94.9609,
+    "speedup_fpga_est_vs_scaleup_proxy": 1.804182,
+    "speedup_fpga_est_vs_tiny_cpu": 0.026839,
+    "tiny_cpu_ms_per_token": 0.15665416625583,
     "fpga_est_ms_per_token": 5.836800013149143,
-    "scaleup_proxy_ms_per_token": 10.094199982716711,
+    "scaleup_proxy_ms_per_token": 10.53064998330892,
     "onnx_mae_q": 0.067302,
     "onnx_mae_k": 0.032923,
     "onnx_mae_v": 0.040802,
@@ -42,13 +42,13 @@
   "artifacts": [
     {
       "path": "docs/portfolio/final_report.md",
-      "sha256": "ddaa92a1d6c8504eb04a2bc271f7088f0025829a8f282ab54fb5bcfb18c2825b",
-      "size_bytes": 2193
+      "sha256": "bb8d90b311033a23be8aa4dafaf21c9bb9d726f3a29d3768cf1d493ed728fe0e",
+      "size_bytes": 2349
     },
     {
       "path": "README.md",
-      "sha256": "dd72fc9f0b79aa783f8a06253c58bfc2c26ab02da291178cf3e410a019b99eec",
-      "size_bytes": 2387
+      "sha256": "1b5855c050b075e9b1fb7b40d7fdf80cf8a08699a2d29073eb105fe6b20bd89e",
+      "size_bytes": 2600
     },
     {
       "path": "docs/portfolio/runbook.md",
@@ -57,13 +57,18 @@
     },
     {
       "path": "docs/portfolio/figures/performance_tps.png",
-      "sha256": "cb86aafa69524fa7b08fe674e59dd60c3c4b4710d7a8c489e8bffd7270d60943",
-      "size_bytes": 28105
+      "sha256": "b089a249e96037c9dccd40f4a0dfad9611bd8e8e03b29dc83b8aab64eff8cfb5",
+      "size_bytes": 42376
+    },
+    {
+      "path": "docs/portfolio/figures/performance_all_tps.png",
+      "sha256": "35e4863da63e51d7041707afa7a5763a4398bd49dcfe1ea4a045893c9cd089c3",
+      "size_bytes": 26622
     },
     {
       "path": "docs/portfolio/figures/qor_resources.png",
-      "sha256": "27b416e8c0c222cafc1bd4ebbf384517895a1c9c42c1d12245c4c0685aa40615",
-      "size_bytes": 40990
+      "sha256": "3f134dd05165edb80fa1e152b530c303cc0a595faecf772f357912a6c1172202",
+      "size_bytes": 51966
     },
     {
       "path": "docs/portfolio/figures/onnx_mae.png",
@@ -74,6 +79,11 @@
       "path": "docs/portfolio/figures/dse_top5_cycles.png",
       "sha256": "42e118ff1ed7ca2f76be035ea8dc56477235f0ae03c74dd8042b1b8353ec5b2e",
       "size_bytes": 43502
+    },
+    {
+      "path": "docs/portfolio/figures/dse_pareto.png",
+      "sha256": "1d672a81a9232b7e732da68f8a3651cb2e00a7a9c013171298c7a318718f9b21",
+      "size_bytes": 28875
     },
     {
       "path": "docs/portfolio/figures/cycle_calibration.png",
@@ -89,9 +99,11 @@
   "readme": "README.md",
   "figures": [
     "docs/portfolio/figures/performance_tps.png",
+    "docs/portfolio/figures/performance_all_tps.png",
     "docs/portfolio/figures/qor_resources.png",
     "docs/portfolio/figures/onnx_mae.png",
     "docs/portfolio/figures/dse_top5_cycles.png",
+    "docs/portfolio/figures/dse_pareto.png",
     "docs/portfolio/figures/cycle_calibration.png"
   ]
 }

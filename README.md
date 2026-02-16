@@ -3,11 +3,11 @@ Repository for boardless development, validation, and portfolio packaging
 of an FPGA/NPU-style LLM inference accelerator.
 ## Current Status
 - Boardless track: B1~B8 PASS
-- Optimization round: N1~N10 PASS
-- tiny_cpu_tps: 9294.760020
+- Optimization round: N1~N13 PASS
+- tiny_cpu_tps: 6383.488061
 - fpga_est_tps: 171.326754
-- scaleup_proxy_tps: 99.066791
-- speedup_fpga_est_vs_scaleup_proxy: 1.729407 (primary)
+- scaleup_proxy_tps: 94.960900
+- speedup_fpga_est_vs_scaleup_proxy: 1.804182 (primary)
 - onnx_mae_avg: 0.047009
 - dse_best(k_tile/pe/overhead): 8/128/8
 - cycle_model_calibration_improvement_pct: 92.70
@@ -49,13 +49,17 @@ python scripts/calibrate_cycle_model.py
 - Runtime default path is NumPy backend; RTL path is validated via cocotb/unit tests.
 - Main KPI for cross-scale fairness is `fpga_est_tps / scaleup_proxy_tps`.
 ## Visualization Results
-### Throughput
+### Throughput (Primary KPI)
 ![Throughput](docs/portfolio/figures/performance_tps.png)
+### Throughput (Reference, includes Tiny CPU)
+![Throughput All](docs/portfolio/figures/performance_all_tps.png)
 ### QoR Resources
 ![QoR](docs/portfolio/figures/qor_resources.png)
 ### ONNX MAE
 ![ONNX MAE](docs/portfolio/figures/onnx_mae.png)
 ### DSE Top-5 (if available)
 ![DSE Top5](docs/portfolio/figures/dse_top5_cycles.png)
+### DSE Pareto (if available)
+![DSE Pareto](docs/portfolio/figures/dse_pareto.png)
 ### Cycle Model Calibration (if available)
 ![Calibration](docs/portfolio/figures/cycle_calibration.png)

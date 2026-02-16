@@ -19,8 +19,10 @@ def test_portfolio_packaging_outputs():
 
     assert report.exists()
     assert (fig_dir / "performance_tps.png").exists()
+    assert (fig_dir / "performance_all_tps.png").exists()
     assert (fig_dir / "qor_resources.png").exists()
     assert (fig_dir / "onnx_mae.png").exists()
+    assert (fig_dir / "dse_pareto.png").exists()
     assert manifest.exists()
     assert runbook.exists()
     assert readme.exists()
@@ -34,5 +36,7 @@ def test_portfolio_packaging_outputs():
     assert all(not p.startswith("D:\\") and not p.startswith("C:\\") for p in data["figures"])
     assert "speedup_fpga_est_vs_scaleup_proxy" in data["metrics"]
     assert "docs/portfolio/figures/performance_tps.png" in data["figures"]
+    assert "docs/portfolio/figures/performance_all_tps.png" in data["figures"]
     assert "docs/portfolio/figures/qor_resources.png" in data["figures"]
     assert "docs/portfolio/figures/onnx_mae.png" in data["figures"]
+    assert "docs/portfolio/figures/dse_pareto.png" in data["figures"]
