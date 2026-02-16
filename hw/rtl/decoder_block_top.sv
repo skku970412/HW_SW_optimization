@@ -1,0 +1,33 @@
+module decoder_block_top #(
+    parameter int DATA_WIDTH = 16
+) (
+    input  logic clk,
+    input  logic rst_n,
+    input  logic in_valid,
+    output logic in_ready,
+    input  logic [DATA_WIDTH-1:0] x_t_data,
+    output logic out_valid,
+    input  logic out_ready,
+    output logic [DATA_WIDTH-1:0] y_t_data
+);
+    logic attn_valid;
+    logic [DATA_WIDTH-1:0] attn_data;
+
+    attention_core #(
+        .DATA_WIDTH(DATA_WIDTH)
+    ) u_attention (
+        .clk(clk),
+        .rst_n(rst_n),
+        .in_valid(in_valid),
+        .in_ready(in_ready),
+        .q_data(x_t_data),
+        .k_data(x_t_data),
+        .v_data(x_t_data),
+        .out_valid(attn_valid),
+        .out_ready(out_ready),
+        .out_data(attn_data)
+    );
+
+    assign out_valid = attn_valid;
+    assign y_t_data  = attn_data;
+endmodule
